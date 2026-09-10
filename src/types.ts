@@ -6,6 +6,7 @@ export type LegoSet = {
   numParts: number | null
   purchaseDate: string | null
   purchasePrice: string
+  isGift: boolean
   condition: string
   imageUrl: string | null
   notes: string
