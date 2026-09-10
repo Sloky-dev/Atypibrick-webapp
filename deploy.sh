@@ -47,6 +47,9 @@ log "Environnement validé — Node.js $node_version, npm $(npm --version)"
 if [[ "${DEPLOY_PULL:-1}" == "1" ]]; then
   if [[ -d .git ]]; then
     log "Récupération des changements Git"
+    # Le script peut être rendu exécutable localement sur le VPS alors que le dépôt
+    # le versionne en 0644. Ignorer ce seul écart évite de bloquer les futurs pulls.
+    git config core.fileMode false
     git pull --ff-only
   else
     log "Aucun dépôt Git local : étape git pull ignorée"
