@@ -23,9 +23,9 @@ function App() {
   const remove = async (item: LegoSet) => { if (!confirm(`Supprimer « ${item.name} » de votre collection ?`)) return; await collectionApi.remove(item.id); await load() }
 
   return <div className="app-shell">
-    <header><a className="brand" href="#"><span className="brand-mark"><span /></span><strong>ATYPI<span>BRICK</span></strong></a><nav><a className="active" href="#collection">Ma collection</a><a href="#stats">Statistiques</a></nav><button className="button primary compact" onClick={openCreate}><PackagePlus size={18} /> Ajouter un set</button></header>
+    <header><a className="brand" href="#"><img src="/atypik-mark.svg" alt="" width="39" height="39" /><span><strong>ATYPIBRICK</strong><small>UN UNIVERS ATYPIK</small></span></a><nav><a className="active" href="#collection">Ma collection</a><a href="#stats">Statistiques</a><a href="https://atypikbzh.fr/atypibrick/">L’univers ↗</a></nav><button className="button primary compact" onClick={openCreate}><PackagePlus size={18} /> Ajouter un set</button></header>
     <main>
-      <section className="hero"><div><span className="eyebrow">TABLEAU DE BORD</span><h1>Ma collection,<br /><em>brique par brique.</em></h1><p>Gardez une vue claire sur chaque set et sur ce que votre passion représente.</p></div><div className="hero-bricks"><i /><i /><i /><i /></div></section>
+      <section className="hero"><div><span className="eyebrow">COLLECTION PERSONNELLE</span><h1>Construire.<br />Collectionner.<br /><em>Se souvenir.</em></h1><p>Chaque set raconte une histoire. Gardez une vue claire sur votre collection et sur ce que votre passion représente.</p></div><div className="hero-bricks" aria-hidden="true"><span className="orbit orbit-one" /><span className="orbit orbit-two" /><strong>AB</strong><small>BRIQUE<br />APRÈS BRIQUE</small></div></section>
       <section className="stats" id="stats">
         <article><span className="stat-icon yellow"><Box /></span><div><small>SETS DIFFÉRENTS</small><strong>{summary.setCount}</strong><p>{summary.itemCount} boîte{summary.itemCount > 1 ? 's' : ''} au total</p></div></article>
         <article><span className="stat-icon blue"><CircleDollarSign /></span><div><small>TOTAL INVESTI</small><strong>{euro.format(Number(summary.totalInvested))}</strong><p>Prix d'achat cumulé</p></div></article>
@@ -41,7 +41,7 @@ function App() {
         </article>)}</div>}
       </section>
     </main>
-    <footer><span>ATYPIBRICK</span><p>Votre collection. Votre histoire. Brique après brique.</p><small>Fait avec passion pour les briques.</small></footer>
+    <footer><div className="footer-brand"><img src="/atypik-mark.svg" alt="" width="34" height="34" /><span>ATYPIBRICK<small>UN UNIVERS ATYPIK</small></span></div><p>Votre collection. Votre histoire. Brique après brique.</p><a href="https://atypikbzh.fr/">Atypik — Le Studio ↗</a></footer>
     {formOpen && <SetForm item={editing} onClose={() => setFormOpen(false)} onSubmit={save} />}
   </div>
 }
