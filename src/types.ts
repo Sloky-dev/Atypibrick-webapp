@@ -3,6 +3,7 @@ export type LegoSet = {
   setNumber: string
   name: string
   theme: string | null
+  numParts: number | null
   purchaseDate: string | null
   purchasePrice: string
   condition: string
@@ -12,8 +13,8 @@ export type LegoSet = {
   updatedAt: string
 }
 
-export type LegoSetPayload = Omit<LegoSet, 'id' | 'name' | 'createdAt' | 'updatedAt'>
+export type LegoSetPayload = Omit<LegoSet, 'id' | 'name' | 'theme' | 'numParts' | 'imageUrl' | 'createdAt' | 'updatedAt'>
 export type CollectionSummary = { setCount: number; itemCount: number; totalInvested: string; averagePrice: string }
-export type LegoSetNameLookup = { setNumber: string; name: string }
+export type LegoSetNameLookup = { setNumber: string; name: string; theme: string | null; numParts: number | null; imageUrl: string | null }
 export type User = { email: string }
 export type LoginResponse = { accessToken: string; tokenType: string; user: User }

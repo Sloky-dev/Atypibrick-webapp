@@ -27,3 +27,11 @@ DEPLOY_PULL=0 ./deploy.sh
 ```
 
 Un autre emplacement peut être indiqué avec `APP_DIR=/chemin/vers/atypibrick_webapp`.
+
+La configuration Nginx complète est versionnée dans `nginx/app.atypibrick.fr.conf`. Le script
+de déploiement l'installe automatiquement avant de tester et recharger Nginx. Pour conserver
+temporairement la configuration déjà installée sur le VPS :
+
+```bash
+DEPLOY_NGINX_CONFIG=0 ./deploy.sh
+```

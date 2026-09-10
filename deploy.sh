@@ -79,6 +79,16 @@ npm run build
 
 if command_exists nginx && command_exists systemctl; then
   command_exists sudo || fail "sudo est requis pour recharger Nginx."
+  nginx_source="$APP_DIR/nginx/app.atypibrick.fr.conf"
+  nginx_target="/etc/nginx/sites-available/app.atypibrick.fr"
+  nginx_enabled="/etc/nginx/sites-enabled/app.atypibrick.fr"
+  if [[ -f "$nginx_source" && "${DEPLOY_NGINX_CONFIG:-1}" == "1" ]]; then
+    log "Installation de la configuration Nginx versionnée"
+    sudo install -o root -g root -m 0644 "$nginx_source" "$nginx_target"
+    if [[ ! -e "$nginx_enabled" ]]; then
+      sudo ln -s "$nginx_target" "$nginx_enabled"
+    fi
+  fi
   log "Validation puis rechargement de Nginx"
   sudo nginx -t
   sudo systemctl reload nginx
