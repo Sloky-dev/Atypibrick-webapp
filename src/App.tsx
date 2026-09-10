@@ -14,7 +14,7 @@ function App() {
   const [accountOpen, setAccountOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [sets, setSets] = useState<LegoSet[]>([])
-  const [summary, setSummary] = useState<CollectionSummary>({ setCount: 0, itemCount: 0, totalInvested: '0', averagePrice: '0' })
+  const [summary, setSummary] = useState<CollectionSummary>({ setCount: 0, itemCount: 0, totalInvested: '0', totalParts: 0 })
   const [query, setQuery] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<LegoSet | null>(null)
@@ -59,7 +59,7 @@ function App() {
       <section className="stats" id="stats">
         <article><span className="stat-icon yellow"><Box /></span><div><small>SETS DIFFÉRENTS</small><strong>{summary.setCount}</strong><p>{summary.itemCount} boîte{summary.itemCount > 1 ? 's' : ''} au total</p></div></article>
         <article><span className="stat-icon blue"><CircleDollarSign /></span><div><small>TOTAL INVESTI</small><strong>{euro.format(Number(summary.totalInvested))}</strong><p>Prix d'achat cumulé</p></div></article>
-        <article><span className="stat-icon red"><Shapes /></span><div><small>PRIX MOYEN</small><strong>{euro.format(Number(summary.averagePrice))}</strong><p>Par set référencé</p></div></article>
+        <article><span className="stat-icon red"><Shapes /></span><div><small>NOMBRE TOTAL DE BRIQUES</small><strong>{summary.totalParts.toLocaleString('fr-FR')}</strong><p>Pièces dans toute la collection</p></div></article>
       </section>
       <section className="collection" id="collection"><div className="section-head"><div><span className="eyebrow">INVENTAIRE</span><h2>Mes sets LEGO</h2></div><div className="search"><Search size={18} /><input aria-label="Rechercher" placeholder="Rechercher un set, un thème…" value={query} onChange={(e) => setQuery(e.target.value)} /></div></div>
         {error && <div className="error"><strong>Le backend ne répond pas.</strong><span>{error}</span><button onClick={() => void load()}>Réessayer</button></div>}
