@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BarChart3, Box, ChevronRight, CircleDollarSign, ExternalLink, LayoutGrid, Library, LogOut, Menu, PackagePlus, Pencil, Search, Shapes, Trash2, UserRound, X } from 'lucide-react'
-import { authApi, collectionApi } from './api'
+import { authApi, clearSession, collectionApi, hasSession } from './api'
 import { AccountModal } from './components/AccountModal'
 import { LoginPage } from './components/LoginPage'
 import { SetForm } from './components/SetForm'
@@ -23,9 +23,8 @@ function App() {
 
   const load = useCallback(async () => { setLoading(true); setError(''); try { const [items, totals] = await Promise.all([collectionApi.list(), collectionApi.summary()]); setSets(items); setSummary(totals) } catch (e) { setError(e instanceof Error ? e.message : 'Impossible de charger la collection') } finally { setLoading(false) } }, [])
   useEffect(() => {
-    const token = localStorage.getItem('atypibrick_token')
-    if (!token) { setAuthLoading(false); return }
-    authApi.me().then(setUser).catch(() => localStorage.removeItem('atypibrick_token')).finally(() => setAuthLoading(false))
+    if (!hasSession()) { setAuthLoading(false); return }
+    authApi.me().then(setUser).catch(clearSession).finally(() => setAuthLoading(false))
   }, [])
   useEffect(() => { if (user) void load() }, [load, user])
   useEffect(() => { const logout = () => setUser(null); window.addEventListener('atypibrick:unauthorized', logout); return () => window.removeEventListener('atypibrick:unauthorized', logout) }, [])
@@ -36,7 +35,7 @@ function App() {
 
   if (authLoading) return <div className="auth-loader"><div className="loader" /><span>ATYPIBRICK</span></div>
   if (!user) return <LoginPage onLogin={setUser} />
-  const logout = () => { localStorage.removeItem('atypibrick_token'); setUser(null); setSets([]) }
+  const logout = () => { clearSession(); setUser(null); setSets([]) }
 
   return <div className="app-shell">
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
@@ -66,7 +65,7 @@ function App() {
         {!error && loading && <div className="empty"><div className="loader" /><p>Chargement de votre collection…</p></div>}
         {!error && !loading && filtered.length === 0 && <div className="empty"><span className="empty-icon"><LayoutGrid /></span><h3>{query ? 'Aucun set ne correspond' : 'Votre collection commence ici'}</h3><p>{query ? 'Essayez une autre recherche.' : 'Ajoutez votre premier set LEGO pour commencer à suivre votre investissement.'}</p>{!query && <button className="button primary" onClick={openCreate}><PackagePlus size={18} /> Ajouter mon premier set</button>}</div>}
         {!error && !loading && filtered.length > 0 && <div className="set-grid">{filtered.map((item) => <article className="set-card" key={item.id}>
-          <div className="set-visual">{item.imageUrl ? <img src={item.imageUrl} alt="" /> : <span><Box /></span>}<b>{item.isGift ? 'Cadeau' : item.condition}</b></div>
+          <div className="set-visual">{item.imageUrl ? <span className="set-image-frame"><img src={item.imageUrl} alt="" /></span> : <span><Box /></span>}<b>{item.isGift ? 'Cadeau' : item.condition}</b></div>
           <div className="set-content"><small>{item.theme || 'Sans thème'}{item.numParts ? ` · ${item.numParts.toLocaleString('fr-FR')} pièces` : ''} · #{item.setNumber}</small><h3>{item.name}</h3><div className="set-bottom"><div><span>{item.isGift ? 'Reçu en cadeau' : 'Investi'}</span><strong>{item.isGift ? 'Cadeau' : euro.format(Number(item.purchasePrice))}</strong></div><div className="card-actions"><button onClick={() => { setEditing(item); setFormOpen(true) }} aria-label="Modifier"><Pencil /></button><button className="danger" onClick={() => void remove(item)} aria-label="Supprimer"><Trash2 /></button><ChevronRight className="chevron" /></div></div></div>
         </article>)}</div>}
       </section>
