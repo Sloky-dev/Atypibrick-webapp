@@ -1,4 +1,4 @@
-import type { CollectionSummary, LegoSet, LegoSetPayload, LoginResponse, User } from './types'
+import type { CollectionSummary, LegoSet, LegoSetNameLookup, LegoSetPayload, LoginResponse, User } from './types'
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api/atypibrick/v1').replace(/\/$/, '')
 
@@ -22,6 +22,10 @@ export const collectionApi = {
   create: (payload: LegoSetPayload) => request<LegoSet>('/collection', { method: 'POST', body: JSON.stringify(payload) }),
   update: (id: string, payload: LegoSetPayload) => request<LegoSet>(`/collection/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   remove: (id: string) => request<void>(`/collection/${id}`, { method: 'DELETE' }),
+}
+
+export const legoSetApi = {
+  lookup: (setNumber: string) => request<LegoSetNameLookup>(`/sets/lookup?setNumber=${encodeURIComponent(setNumber)}`),
 }
 
 export const authApi = {
