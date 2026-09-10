@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Box, ChevronRight, CircleDollarSign, LayoutGrid, PackagePlus, Pencil, Search, Shapes, Trash2 } from 'lucide-react'
-import { collectionApi } from './api'
+import { Box, ChevronRight, CircleDollarSign, LayoutGrid, LogOut, PackagePlus, Pencil, Search, Shapes, Trash2, UserRound } from 'lucide-react'
+import { authApi, collectionApi } from './api'
+import { AccountModal } from './components/AccountModal'
+import { LoginPage } from './components/LoginPage'
 import { SetForm } from './components/SetForm'
-import type { CollectionSummary, LegoSet, LegoSetPayload } from './types'
+import type { CollectionSummary, LegoSet, LegoSetPayload, User } from './types'
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 
 function App() {
+  const [user, setUser] = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [accountOpen, setAccountOpen] = useState(false)
   const [sets, setSets] = useState<LegoSet[]>([])
   const [summary, setSummary] = useState<CollectionSummary>({ setCount: 0, itemCount: 0, totalInvested: '0', averagePrice: '0' })
   const [query, setQuery] = useState('')
@@ -16,14 +21,24 @@ function App() {
   const [error, setError] = useState('')
 
   const load = useCallback(async () => { setLoading(true); setError(''); try { const [items, totals] = await Promise.all([collectionApi.list(), collectionApi.summary()]); setSets(items); setSummary(totals) } catch (e) { setError(e instanceof Error ? e.message : 'Impossible de charger la collection') } finally { setLoading(false) } }, [])
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    const token = localStorage.getItem('atypibrick_token')
+    if (!token) { setAuthLoading(false); return }
+    authApi.me().then(setUser).catch(() => localStorage.removeItem('atypibrick_token')).finally(() => setAuthLoading(false))
+  }, [])
+  useEffect(() => { if (user) void load() }, [load, user])
+  useEffect(() => { const logout = () => setUser(null); window.addEventListener('atypibrick:unauthorized', logout); return () => window.removeEventListener('atypibrick:unauthorized', logout) }, [])
   const filtered = useMemo(() => { const q = query.toLowerCase(); return sets.filter((item) => [item.name, item.setNumber, item.theme || ''].some((value) => value.toLowerCase().includes(q))) }, [sets, query])
   const openCreate = () => { setEditing(null); setFormOpen(true) }
   const save = async (payload: LegoSetPayload) => { if (editing) await collectionApi.update(editing.id, payload); else await collectionApi.create(payload); setFormOpen(false); await load() }
   const remove = async (item: LegoSet) => { if (!confirm(`Supprimer « ${item.name} » de votre collection ?`)) return; await collectionApi.remove(item.id); await load() }
 
+  if (authLoading) return <div className="auth-loader"><div className="loader" /><span>ATYPIBRICK</span></div>
+  if (!user) return <LoginPage onLogin={setUser} />
+  const logout = () => { localStorage.removeItem('atypibrick_token'); setUser(null); setSets([]) }
+
   return <div className="app-shell">
-    <header><a className="brand" href="#"><img src="/atypik-mark.svg" alt="" width="39" height="39" /><span><strong>ATYPIBRICK</strong><small>UN UNIVERS ATYPIK</small></span></a><nav><a className="active" href="#collection">Ma collection</a><a href="#stats">Statistiques</a><a href="https://atypikbzh.fr/atypibrick/">L’univers ↗</a></nav><button className="button primary compact" onClick={openCreate}><PackagePlus size={18} /> Ajouter un set</button></header>
+    <header><a className="brand" href="#"><img src="/atypik-mark.svg" alt="" width="39" height="39" /><span><strong>ATYPIBRICK</strong><small>UN UNIVERS ATYPIK</small></span></a><nav><a className="active" href="#collection">Ma collection</a><a href="#stats">Statistiques</a><button onClick={() => setAccountOpen(true)}>Mon compte</button><a href="https://atypikbzh.fr/atypibrick/">L’univers ↗</a></nav><div className="header-actions"><button className="header-icon" onClick={() => setAccountOpen(true)} aria-label="Mon compte"><UserRound /></button><button className="header-icon" onClick={logout} aria-label="Se déconnecter"><LogOut /></button><button className="button primary compact" onClick={openCreate}><PackagePlus size={18} /> Ajouter un set</button></div></header>
     <main>
       <section className="hero"><div><span className="eyebrow">COLLECTION PERSONNELLE</span><h1>Construire.<br />Collectionner.<br /><em>Se souvenir.</em></h1><p>Chaque set raconte une histoire. Gardez une vue claire sur votre collection et sur ce que votre passion représente.</p></div><div className="hero-bricks" aria-hidden="true"><span className="orbit orbit-one" /><span className="orbit orbit-two" /><strong>AB</strong><small>BRIQUE<br />APRÈS BRIQUE</small></div></section>
       <section className="stats" id="stats">
@@ -43,6 +58,7 @@ function App() {
     </main>
     <footer><div className="footer-brand"><img src="/atypik-mark.svg" alt="" width="34" height="34" /><span>ATYPIBRICK<small>UN UNIVERS ATYPIK</small></span></div><p>Votre collection. Votre histoire. Brique après brique.</p><a href="https://atypikbzh.fr/">Atypik — Le Studio ↗</a></footer>
     {formOpen && <SetForm item={editing} onClose={() => setFormOpen(false)} onSubmit={save} />}
+    {accountOpen && <AccountModal user={user} onClose={() => setAccountOpen(false)} />}
   </div>
 }
 

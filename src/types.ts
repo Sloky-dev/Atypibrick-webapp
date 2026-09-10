@@ -15,3 +15,5 @@ export type LegoSet = {
 
 export type LegoSetPayload = Omit<LegoSet, 'id' | 'createdAt' | 'updatedAt'>
 export type CollectionSummary = { setCount: number; itemCount: number; totalInvested: string; averagePrice: string }
+export type User = { email: string }
+export type LoginResponse = { accessToken: string; tokenType: string; user: User }
