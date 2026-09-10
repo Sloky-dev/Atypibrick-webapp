@@ -1,4 +1,4 @@
-import type { CollectionSummary, LegoSet, LegoSetNameLookup, LegoSetPayload, LoginResponse, TokenPair, User } from './types'
+import type { CollectionSummary, LegoSet, LegoSetNameLookup, LegoSetPage, LegoSetPayload, LoginResponse, TokenPair, User } from './types'
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api/atypibrick/v1').replace(/\/$/, '')
 const ACCESS_TOKEN_KEY = 'atypibrick_token'
@@ -53,7 +53,11 @@ async function request<T>(path: string, init?: RequestInit, retry = true): Promi
 }
 
 export const collectionApi = {
-  list: (query = '') => request<LegoSet[]>(`/collection${query ? `?q=${encodeURIComponent(query)}` : ''}`),
+  list: (query = '', offset = 0, limit = 9) => {
+    const params = new URLSearchParams({ offset: String(offset), limit: String(limit) })
+    if (query) params.set('q', query)
+    return request<LegoSetPage>(`/collection?${params}`)
+  },
   summary: () => request<CollectionSummary>('/collection/summary'),
   create: (payload: LegoSetPayload) => request<LegoSet>('/collection', { method: 'POST', body: JSON.stringify(payload) }),
   update: (id: string, payload: LegoSetPayload) => request<LegoSet>(`/collection/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BarChart3, Box, ChevronRight, CircleDollarSign, ClipboardCheck, ExternalLink, LayoutGrid, Library, LogOut, Menu, PackagePlus, Pencil, Search, Shapes, Trash2, UserRound, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Box, ChevronRight, CircleDollarSign, ClipboardCheck, ExternalLink, LayoutGrid, Library, LogOut, Menu, PackagePlus, Pencil, Search, Shapes, Trash2, UserRound, X } from 'lucide-react'
 import { authApi, clearSession, collectionApi, hasSession } from './api'
 import { AccountModal } from './components/AccountModal'
 import { LoginPage } from './components/LoginPage'
@@ -8,6 +8,7 @@ import { SetForm } from './components/SetForm'
 import type { CollectionSummary, LegoSet, LegoSetPayload, User } from './types'
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
+const PAGE_SIZE = 9
 
 async function repairMissingImages(items: LegoSet[]): Promise<LegoSet[]> {
   const repaired = [...items]
@@ -26,28 +27,86 @@ function App() {
   const [authLoading, setAuthLoading] = useState(true)
   const [accountOpen, setAccountOpen] = useState(false)
   const [inventoryOpen, setInventoryOpen] = useState(false)
+  const [inventoryLoading, setInventoryLoading] = useState(false)
+  const [inventoryItems, setInventoryItems] = useState<LegoSet[]>([])
   const [menuOpen, setMenuOpen] = useState(false)
   const [sets, setSets] = useState<LegoSet[]>([])
+  const [latestSet, setLatestSet] = useState<LegoSet | undefined>()
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [summary, setSummary] = useState<CollectionSummary>({ setCount: 0, itemCount: 0, totalInvested: '0', totalParts: 0 })
   const [query, setQuery] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<LegoSet | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const listGeneration = useRef(0)
+  const loadingMoreRef = useRef(false)
+  const loadMoreSentinel = useRef<HTMLDivElement | null>(null)
 
-  const load = useCallback(async () => { setLoading(true); setError(''); try { const [items, totals] = await Promise.all([collectionApi.list(), collectionApi.summary()]); setSets(await repairMissingImages(items)); setSummary(totals) } catch (e) { setError(e instanceof Error ? e.message : 'Impossible de charger la collection') } finally { setLoading(false) } }, [])
+  const load = useCallback(async (search = '') => {
+    const generation = ++listGeneration.current
+    setLoading(true); setError('')
+    try {
+      const [page, totals] = await Promise.all([collectionApi.list(search, 0, PAGE_SIZE), collectionApi.summary()])
+      const items = await repairMissingImages(page.items)
+      if (generation !== listGeneration.current) return
+      setSets(items); setHasMore(page.hasMore); setSummary(totals)
+      if (!search) setLatestSet(items[0])
+    } catch (e) {
+      if (generation === listGeneration.current) setError(e instanceof Error ? e.message : 'Impossible de charger la collection')
+    } finally {
+      if (generation === listGeneration.current) setLoading(false)
+    }
+  }, [])
+
+  const loadMore = useCallback(async () => {
+    if (!hasMore || loadingMoreRef.current) return
+    loadingMoreRef.current = true; setLoadingMore(true)
+    const generation = listGeneration.current
+    try {
+      const page = await collectionApi.list(query.trim(), sets.length, PAGE_SIZE)
+      const items = await repairMissingImages(page.items)
+      if (generation !== listGeneration.current) return
+      setSets((current) => [...current, ...items.filter((item) => !current.some((existing) => existing.id === item.id))])
+      setHasMore(page.hasMore)
+    } catch (e) {
+      if (generation === listGeneration.current) setError(e instanceof Error ? e.message : 'Impossible de charger la suite')
+    } finally {
+      loadingMoreRef.current = false; setLoadingMore(false)
+    }
+  }, [hasMore, query, sets.length])
   useEffect(() => {
     if (!hasSession()) { setAuthLoading(false); return }
     authApi.me().then(setUser).catch(clearSession).finally(() => setAuthLoading(false))
   }, [])
-  useEffect(() => { if (user) void load() }, [load, user])
+  useEffect(() => { if (!user) return; const timer = window.setTimeout(() => void load(query.trim()), 350); return () => window.clearTimeout(timer) }, [load, query, user])
+  useEffect(() => {
+    const target = loadMoreSentinel.current
+    if (!target || !hasMore || loading) return
+    const observer = new IntersectionObserver((entries) => { if (entries[0]?.isIntersecting) void loadMore() }, { rootMargin: '300px' })
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [hasMore, loadMore, loading])
   useEffect(() => { const logout = () => setUser(null); window.addEventListener('atypibrick:unauthorized', logout); return () => window.removeEventListener('atypibrick:unauthorized', logout) }, [])
-  const filtered = useMemo(() => { const q = query.toLowerCase(); return sets.filter((item) => [item.name, item.setNumber, item.theme || ''].some((value) => value.toLowerCase().includes(q))) }, [sets, query])
-  const latestSet = sets[0]
   const openCreate = () => { setEditing(null); setFormOpen(true) }
-  const save = async (payload: LegoSetPayload) => { if (editing) await collectionApi.update(editing.id, payload); else await collectionApi.create(payload); setFormOpen(false); await load() }
-  const remove = async (item: LegoSet) => { if (!confirm(`Supprimer « ${item.name} » de votre collection ?`)) return; await collectionApi.remove(item.id); await load() }
-  const deleteMissing = async (ids: string[]) => { await collectionApi.removeMany(ids); await load() }
+  const save = async (payload: LegoSetPayload) => { if (editing) await collectionApi.update(editing.id, payload); else await collectionApi.create(payload); setFormOpen(false); await load(query.trim()) }
+  const remove = async (item: LegoSet) => { if (!confirm(`Supprimer « ${item.name} » de votre collection ?`)) return; await collectionApi.remove(item.id); await load(query.trim()) }
+  const deleteMissing = async (ids: string[]) => { await collectionApi.removeMany(ids); await load(query.trim()) }
+  const openInventory = async () => {
+    setInventoryLoading(true)
+    try {
+      const allItems: LegoSet[] = []
+      let more = true
+      while (more) {
+        const page = await collectionApi.list('', allItems.length, 50)
+        allItems.push(...page.items)
+        more = page.hasMore
+      }
+      setInventoryItems(await repairMissingImages(allItems)); setInventoryOpen(true)
+    } catch (e) { setError(e instanceof Error ? e.message : 'Impossible de préparer l’inventaire') }
+    finally { setInventoryLoading(false) }
+  }
 
   if (authLoading) return <div className="auth-loader"><div className="loader" /><span>ATYPIBRICK</span></div>
   if (!user) return <LoginPage onLogin={setUser} />
@@ -60,8 +119,6 @@ function App() {
       <nav className="sidebar-nav" aria-label="Navigation principale">
         <small>ESPACE COLLECTION</small>
         <a className="active" href="#collection" onClick={() => setMenuOpen(false)}><Library /> Ma collection</a>
-        <button type="button" onClick={() => { setInventoryOpen(true); setMenuOpen(false) }}><ClipboardCheck /> Faire l’inventaire</button>
-        <a href="#stats" onClick={() => setMenuOpen(false)}><BarChart3 /> Statistiques</a>
         <small>ATYPIBRICK</small>
         <a href="https://atypikbzh.fr/atypibrick/"><ExternalLink /> Découvrir l’univers</a>
       </nav>
@@ -72,7 +129,7 @@ function App() {
     <header className="mobile-header"><a className="brand" href="#"><img src="/atypik-mark.svg" alt="" width="38" height="38" /><span><strong>ATYPIBRICK</strong><small>UN UNIVERS ATYPIK</small></span></a><button onClick={() => setMenuOpen(true)} aria-label="Ouvrir le menu"><Menu /></button></header>
     <main>
       <section className="hero dashboard-hero">
-        <div className="hero-dashboard-copy"><span className="eyebrow">VUE D’ENSEMBLE</span><h1>Ma collection<br /><em>LEGO.</em></h1><p>Retrouvez vos sets, suivez votre investissement et contrôlez votre collection depuis un seul espace.</p><div className="hero-actions"><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button><button className="button ghost" onClick={() => setInventoryOpen(true)}><ClipboardCheck /> Faire l’inventaire</button></div><div className="hero-summary"><span><strong>{summary.itemCount}</strong><small>EXEMPLAIRE{summary.itemCount > 1 ? 'S' : ''}</small></span><span><strong>{summary.totalParts.toLocaleString('fr-FR')}</strong><small>BRIQUES</small></span><span><strong>{euro.format(Number(summary.totalInvested))}</strong><small>INVESTIS</small></span></div></div>
+        <div className="hero-dashboard-copy"><span className="eyebrow">VUE D’ENSEMBLE</span><h1>Ma collection<br /><em>LEGO.</em></h1><p>Retrouvez vos sets, suivez votre investissement et contrôlez votre collection depuis un seul espace.</p><div className="hero-actions"><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button><button className="button ghost" disabled={inventoryLoading} onClick={() => void openInventory()}><ClipboardCheck /> {inventoryLoading ? 'Préparation…' : 'Faire l’inventaire'}</button></div><div className="hero-summary"><span><strong>{summary.itemCount}</strong><small>EXEMPLAIRE{summary.itemCount > 1 ? 'S' : ''}</small></span><span><strong>{summary.totalParts.toLocaleString('fr-FR')}</strong><small>BRIQUES</small></span><span><strong>{euro.format(Number(summary.totalInvested))}</strong><small>INVESTIS</small></span></div></div>
         <div className="latest-set-panel">{latestSet ? <><div className="latest-set-head"><span>DERNIER AJOUT</span><button onClick={() => { setEditing(latestSet); setFormOpen(true) }}>Modifier <Pencil /></button></div><div className="latest-set-image">{latestSet.imageUrl ? <img src={latestSet.imageUrl} alt={`Boîte du set ${latestSet.name}`} /> : <Box />}</div><div className="latest-set-info"><small>{latestSet.theme || 'Sans thème'} · #{latestSet.setNumber}</small><strong>{latestSet.name}</strong><span>{latestSet.isGift ? 'Reçu en cadeau' : euro.format(Number(latestSet.purchasePrice))}</span></div></> : <><div className="latest-set-empty"><Box /><span>VOTRE PREMIER SET</span><strong>La collection commence ici.</strong><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button></div></>}</div>
       </section>
       <section className="stats" id="stats">
@@ -83,18 +140,18 @@ function App() {
       <section className="collection" id="collection"><div className="section-head"><div><span className="eyebrow">INVENTAIRE</span><h2>Mes sets LEGO</h2></div><div className="search"><Search size={18} /><input aria-label="Rechercher" placeholder="Rechercher un set, un thème…" value={query} onChange={(e) => setQuery(e.target.value)} /></div></div>
         {error && <div className="error"><strong>Le backend ne répond pas.</strong><span>{error}</span><button onClick={() => void load()}>Réessayer</button></div>}
         {!error && loading && <div className="empty"><div className="loader" /><p>Chargement de votre collection…</p></div>}
-        {!error && !loading && filtered.length === 0 && <div className="empty"><span className="empty-icon"><LayoutGrid /></span><h3>{query ? 'Aucun set ne correspond' : 'Votre collection commence ici'}</h3><p>{query ? 'Essayez une autre recherche.' : 'Ajoutez votre premier set LEGO pour commencer à suivre votre investissement.'}</p>{!query && <button className="button primary" onClick={openCreate}><PackagePlus size={18} /> Ajouter mon premier set</button>}</div>}
-        {!error && !loading && filtered.length > 0 && <div className="set-grid">{filtered.map((item) => <article className="set-card" key={item.id}>
+        {!error && !loading && sets.length === 0 && <div className="empty"><span className="empty-icon"><LayoutGrid /></span><h3>{query ? 'Aucun set ne correspond' : 'Votre collection commence ici'}</h3><p>{query ? 'Essayez une autre recherche.' : 'Ajoutez votre premier set LEGO pour commencer à suivre votre investissement.'}</p>{!query && <button className="button primary" onClick={openCreate}><PackagePlus size={18} /> Ajouter mon premier set</button>}</div>}
+        {!error && !loading && sets.length > 0 && <><div className="set-grid">{sets.map((item) => <article className="set-card" key={item.id}>
           <div className="set-visual">{item.imageUrl ? <span className="set-image-frame"><img src={item.imageUrl} alt="" /></span> : <span><Box /></span>}<b>{item.isGift ? 'Cadeau' : item.condition}</b></div>
           <div className="set-content"><small>{item.theme || 'Sans thème'}{item.numParts ? ` · ${item.numParts.toLocaleString('fr-FR')} pièces` : ''} · #{item.setNumber}</small><h3>{item.name}</h3><div className="set-bottom"><div><span>{item.isGift ? 'Reçu en cadeau' : 'Investi'}</span><strong>{item.isGift ? 'Cadeau' : euro.format(Number(item.purchasePrice))}</strong></div><div className="card-actions"><button onClick={() => { setEditing(item); setFormOpen(true) }} aria-label="Modifier"><Pencil /></button><button className="danger" onClick={() => void remove(item)} aria-label="Supprimer"><Trash2 /></button><ChevronRight className="chevron" /></div></div></div>
-        </article>)}</div>}
+        </article>)}</div><div ref={loadMoreSentinel} className="load-more-sentinel" aria-live="polite">{loadingMore && <><div className="loader" /><span>Chargement des sets suivants…</span></>}{!hasMore && <span>{sets.length} set{sets.length > 1 ? 's' : ''} affiché{sets.length > 1 ? 's' : ''}</span>}</div></>}
       </section>
     </main>
     <footer><div className="footer-brand"><img src="/atypik-mark.svg" alt="" width="34" height="34" /><span>ATYPIBRICK<small>UN UNIVERS ATYPIK</small></span></div><p>Votre collection. Votre histoire. Brique après brique.</p><a href="https://atypikbzh.fr/">Atypik — Le Studio ↗</a></footer>
     </div>
     {formOpen && <SetForm item={editing} onClose={() => setFormOpen(false)} onSubmit={save} />}
     {accountOpen && <AccountModal user={user} onClose={() => setAccountOpen(false)} />}
-    {inventoryOpen && <InventoryModal items={sets} onClose={() => setInventoryOpen(false)} onDeleteMissing={deleteMissing} />}
+    {inventoryOpen && <InventoryModal items={inventoryItems} onClose={() => setInventoryOpen(false)} onDeleteMissing={deleteMissing} />}
   </div>
 }
 
