@@ -30,3 +30,4 @@ export type InventoryOverview = { active: InventorySession | null; history: Inve
 export type TrashItem = LegoSet & { deletedAt: string; expiresAt: string }
 export type PickABrickPart = { elementId: string; designId: string; name: string; imageUrl: string | null; inStock: boolean; price: string | null; currency: string | null; deliveryChannel: string | null }
 export type MissingPart = PickABrickPart & { id: string; legoSetId: string; quantity: number; availabilityCheckedAt: string }
+export type MissingPartsSetSummary = { setId: string; setNumber: string; setName: string; parts: MissingPart[]; totalQuantity: number }

@@ -9,6 +9,7 @@ import { StatisticsBreakdown } from './components/StatisticsBreakdown'
 import { TrashModal } from './components/TrashModal'
 import { CollectionFiltersPanel, emptyCollectionFilters } from './components/CollectionFiltersPanel'
 import { MissingPartsModal } from './components/MissingPartsModal'
+import { PickABrickModal } from './components/PickABrickModal'
 import type { CollectionFilters, CollectionSummary, LegoSet, LegoSetPayload, User } from './types'
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
@@ -30,6 +31,7 @@ function App() {
   const [inventoryOpen, setInventoryOpen] = useState(false)
   const [trashOpen, setTrashOpen] = useState(false)
   const [missingPartsSet, setMissingPartsSet] = useState<LegoSet | null>(null)
+  const [pickABrickOpen, setPickABrickOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [sets, setSets] = useState<LegoSet[]>([])
   const [latestSet, setLatestSet] = useState<LegoSet | undefined>()
@@ -120,6 +122,7 @@ function App() {
       <nav className="sidebar-nav" aria-label="Navigation principale">
         <small>ESPACE COLLECTION</small>
         <a className="active" href="#collection" onClick={() => setMenuOpen(false)}><Library /> Ma collection</a>
+        <button type="button" onClick={() => { setPickABrickOpen(true); setMenuOpen(false) }}><Puzzle /> Pick a Brick</button>
         <button type="button" onClick={() => { setTrashOpen(true); setMenuOpen(false) }}><Trash2 /> Corbeille</button>
         <small>ATYPIBRICK</small>
         <a href="https://atypikbzh.fr/atypibrick/"><ExternalLink /> Découvrir l’univers</a>
@@ -157,6 +160,7 @@ function App() {
     {inventoryOpen && <InventoryModal onClose={() => setInventoryOpen(false)} onCompleted={inventoryCompleted} />}
     {trashOpen && <TrashModal onClose={() => setTrashOpen(false)} onRestored={() => load(query.trim())} />}
     {missingPartsSet && <MissingPartsModal set={missingPartsSet} onClose={() => setMissingPartsSet(null)} onCountChange={(count) => { setSets((current) => current.map((item) => item.id === missingPartsSet.id ? { ...item, missingPartsCount: count } : item)); setLatestSet((current) => current?.id === missingPartsSet.id ? { ...current, missingPartsCount: count } : current); setMissingPartsSet((current) => current ? { ...current, missingPartsCount: count } : current) }} />}
+    {pickABrickOpen && <PickABrickModal onClose={() => setPickABrickOpen(false)} />}
   </div>
 }
 
