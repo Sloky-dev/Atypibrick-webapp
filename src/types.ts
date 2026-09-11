@@ -27,3 +27,5 @@ export type InventoryItem = { id: string; legoSetId: string | null; setNumber: s
 export type InventorySession = { id: string; status: 'active' | 'completed'; createdAt: string; completedAt: string | null; totalCount: number; verifiedCount: number; presentCount: number; absentCount: number; deletedCount: number; items: InventoryItem[] }
 export type InventoryOverview = { active: InventorySession | null; history: InventorySession[] }
 export type TrashItem = LegoSet & { deletedAt: string; expiresAt: string }
+export type PickABrickPart = { elementId: string; designId: string; name: string; imageUrl: string | null; inStock: boolean; price: string | null; currency: string | null; deliveryChannel: string | null }
+export type MissingPart = PickABrickPart & { id: string; legoSetId: string; quantity: number; availabilityCheckedAt: string }

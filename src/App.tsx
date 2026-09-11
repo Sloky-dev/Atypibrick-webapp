@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Box, CalendarDays, ChevronRight, ClipboardCheck, ExternalLink, LayoutGrid, Library, LogOut, Menu, PackagePlus, Palette, Pencil, Search, SlidersHorizontal, Tags, Trash2, UserRound, X } from 'lucide-react'
+import { Box, CalendarDays, ChevronRight, ClipboardCheck, ExternalLink, LayoutGrid, Library, LogOut, Menu, PackagePlus, Palette, Pencil, Puzzle, Search, SlidersHorizontal, Tags, Trash2, UserRound, X } from 'lucide-react'
 import { authApi, clearSession, collectionApi } from './api'
 import { AccountModal } from './components/AccountModal'
 import { LoginPage } from './components/LoginPage'
@@ -8,6 +8,7 @@ import { SetForm } from './components/SetForm'
 import { StatisticsBreakdown } from './components/StatisticsBreakdown'
 import { TrashModal } from './components/TrashModal'
 import { CollectionFiltersPanel, emptyCollectionFilters } from './components/CollectionFiltersPanel'
+import { MissingPartsModal } from './components/MissingPartsModal'
 import type { CollectionFilters, CollectionSummary, LegoSet, LegoSetPayload, User } from './types'
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
@@ -28,6 +29,7 @@ function App() {
   const [accountOpen, setAccountOpen] = useState(false)
   const [inventoryOpen, setInventoryOpen] = useState(false)
   const [trashOpen, setTrashOpen] = useState(false)
+  const [missingPartsSet, setMissingPartsSet] = useState<LegoSet | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [sets, setSets] = useState<LegoSet[]>([])
   const [latestSet, setLatestSet] = useState<LegoSet | undefined>()
@@ -144,7 +146,7 @@ function App() {
         {!error && !loading && sets.length === 0 && <div className="empty"><span className="empty-icon"><LayoutGrid /></span><h3>{query ? 'Aucun set ne correspond' : 'Votre collection commence ici'}</h3><p>{query ? 'Essayez une autre recherche.' : 'Ajoutez votre premier set LEGO pour commencer à suivre votre investissement.'}</p>{!query && <button className="button primary" onClick={openCreate}><PackagePlus size={18} /> Ajouter mon premier set</button>}</div>}
         {!error && !loading && sets.length > 0 && <><div className="set-grid">{sets.map((item) => <article className="set-card" key={item.id}>
           <div className="set-visual">{item.imageUrl ? <span className="set-image-frame"><img src={item.imageUrl} alt="" /></span> : <span><Box /></span>}<b>{item.isGift ? 'Cadeau' : item.condition}</b></div>
-          <div className="set-content"><small>{item.theme || 'Sans thème'}{item.numParts ? ` · ${item.numParts.toLocaleString('fr-FR')} pièces` : ''} · #{item.setNumber}</small><h3>{item.name}</h3><div className="set-bottom"><div><span>{item.isGift ? 'Reçu en cadeau' : 'Investi'}</span><strong>{item.isGift ? 'Cadeau' : euro.format(Number(item.purchasePrice))}</strong></div><div className="card-actions"><button onClick={() => { setEditing(item); setFormOpen(true) }} aria-label="Modifier"><Pencil /></button><button className="danger" onClick={() => void remove(item)} aria-label="Supprimer"><Trash2 /></button><ChevronRight className="chevron" /></div></div></div>
+          <div className="set-content"><small>{item.theme || 'Sans thème'}{item.numParts ? ` · ${item.numParts.toLocaleString('fr-FR')} pièces` : ''} · #{item.setNumber}</small><h3>{item.name}</h3><div className="set-bottom"><div><span>{item.isGift ? 'Reçu en cadeau' : 'Investi'}</span><strong>{item.isGift ? 'Cadeau' : euro.format(Number(item.purchasePrice))}</strong></div><div className="card-actions"><button onClick={() => setMissingPartsSet(item)} aria-label="Gérer les pièces manquantes" title="Pièces manquantes"><Puzzle /></button><button onClick={() => { setEditing(item); setFormOpen(true) }} aria-label="Modifier"><Pencil /></button><button className="danger" onClick={() => void remove(item)} aria-label="Supprimer"><Trash2 /></button><ChevronRight className="chevron" /></div></div></div>
         </article>)}</div><div ref={loadMoreSentinel} className="load-more-sentinel" aria-live="polite">{loadingMore && <><div className="loader" /><span>Chargement des sets suivants…</span></>}{!hasMore && <span>{sets.length} set{sets.length > 1 ? 's' : ''} affiché{sets.length > 1 ? 's' : ''}</span>}</div></>}
       </section>
     </main>
@@ -154,6 +156,7 @@ function App() {
     {accountOpen && <AccountModal user={user} onClose={() => setAccountOpen(false)} />}
     {inventoryOpen && <InventoryModal onClose={() => setInventoryOpen(false)} onCompleted={inventoryCompleted} />}
     {trashOpen && <TrashModal onClose={() => setTrashOpen(false)} onRestored={() => load(query.trim())} />}
+    {missingPartsSet && <MissingPartsModal set={missingPartsSet} onClose={() => setMissingPartsSet(null)} />}
   </div>
 }
 

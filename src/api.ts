@@ -1,4 +1,4 @@
-import type { CollectionFilters, CollectionSummary, InventoryOverview, InventorySession, LegoSet, LegoSetNameLookup, LegoSetPage, LegoSetPayload, LoginResponse, TokenPair, TrashItem, User } from './types'
+import type { CollectionFilters, CollectionSummary, InventoryOverview, InventorySession, LegoSet, LegoSetNameLookup, LegoSetPage, LegoSetPayload, LoginResponse, MissingPart, PickABrickPart, TokenPair, TrashItem, User } from './types'
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api/atypibrick/v1').replace(/\/$/, '')
 const ACCESS_TOKEN_KEY = 'atypibrick_token'
@@ -85,6 +85,14 @@ export const inventoryApi = {
 export const trashApi = {
   list: () => request<TrashItem[]>('/trash'),
   restore: (id: string) => request<void>(`/trash/${id}/restore`, { method: 'POST' }),
+}
+
+export const missingPartsApi = {
+  lookup: (reference: string) => request<PickABrickPart[]>(`/parts/lookup?reference=${encodeURIComponent(reference)}`),
+  list: (setId: string) => request<MissingPart[]>(`/parts/sets/${setId}`),
+  add: (setId: string, elementId: string, quantity: number) => request<MissingPart>(`/parts/sets/${setId}`, { method: 'POST', body: JSON.stringify({ elementId, quantity }) }),
+  refresh: (id: string) => request<MissingPart>(`/parts/${id}/refresh`, { method: 'POST' }),
+  remove: (id: string) => request<void>(`/parts/${id}`, { method: 'DELETE' }),
 }
 
 export const authApi = {
