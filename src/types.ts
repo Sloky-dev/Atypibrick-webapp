@@ -19,5 +19,5 @@ export type LegoSetPage = { items: LegoSet[]; hasMore: boolean }
 export type CollectionSummary = { setCount: number; itemCount: number; totalInvested: string; totalParts: number }
 export type LegoSetNameLookup = { setNumber: string; name: string; theme: string | null; numParts: number | null; imageUrl: string | null }
 export type User = { email: string }
-export type TokenPair = { accessToken: string; refreshToken: string; tokenType: string }
+export type TokenPair = { accessToken: string; tokenType: string }
 export type LoginResponse = TokenPair & { user: User }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Box, ChevronRight, CircleDollarSign, ClipboardCheck, ExternalLink, LayoutGrid, Library, LogOut, Menu, PackagePlus, Pencil, Search, Shapes, Trash2, UserRound, X } from 'lucide-react'
-import { authApi, clearSession, collectionApi, hasSession } from './api'
+import { authApi, clearSession, collectionApi } from './api'
 import { AccountModal } from './components/AccountModal'
 import { LoginPage } from './components/LoginPage'
 import { InventoryModal } from './components/InventoryModal'
@@ -77,7 +77,6 @@ function App() {
     }
   }, [hasMore, query, sets.length])
   useEffect(() => {
-    if (!hasSession()) { setAuthLoading(false); return }
     authApi.me().then(setUser).catch(clearSession).finally(() => setAuthLoading(false))
   }, [])
   useEffect(() => { if (!user) return; const timer = window.setTimeout(() => void load(query.trim()), 350); return () => window.clearTimeout(timer) }, [load, query, user])
@@ -110,7 +109,7 @@ function App() {
 
   if (authLoading) return <div className="auth-loader"><div className="loader" /><span>ATYPIBRICK</span></div>
   if (!user) return <LoginPage onLogin={setUser} />
-  const logout = () => { clearSession(); setUser(null); setSets([]) }
+  const logout = () => { void authApi.logout().finally(() => { clearSession(); setUser(null); setSets([]) }) }
 
   return <div className="app-shell">
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
