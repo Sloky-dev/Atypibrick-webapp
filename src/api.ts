@@ -1,4 +1,4 @@
-import type { CollectionSummary, InventoryOverview, InventorySession, LegoSet, LegoSetNameLookup, LegoSetPage, LegoSetPayload, LoginResponse, TokenPair, User } from './types'
+import type { CollectionSummary, InventoryOverview, InventorySession, LegoSet, LegoSetNameLookup, LegoSetPage, LegoSetPayload, LoginResponse, TokenPair, TrashItem, User } from './types'
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api/atypibrick/v1').replace(/\/$/, '')
 const ACCESS_TOKEN_KEY = 'atypibrick_token'
@@ -68,6 +68,11 @@ export const inventoryApi = {
   start: () => request<InventorySession>('/inventory', { method: 'POST' }),
   markPresent: (sessionId: string, itemId: string, present: boolean) => request<InventorySession>(`/inventory/${sessionId}/items/${itemId}`, { method: 'PUT', body: JSON.stringify({ present }) }),
   complete: (sessionId: string, deleteMissing: boolean) => request<InventorySession>(`/inventory/${sessionId}/complete`, { method: 'POST', body: JSON.stringify({ deleteMissing }) }),
+}
+
+export const trashApi = {
+  list: () => request<TrashItem[]>('/trash'),
+  restore: (id: string) => request<void>(`/trash/${id}/restore`, { method: 'POST' }),
 }
 
 export const authApi = {

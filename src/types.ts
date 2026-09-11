@@ -25,3 +25,4 @@ export type LoginResponse = TokenPair & { user: User }
 export type InventoryItem = { id: string; legoSetId: string | null; setNumber: string; name: string; theme: string | null; condition: string; purchasePrice: string; imageUrl: string | null; status: 'pending' | 'present' | 'absent'; verifiedAt: string | null; deletedFromCollection: boolean; deletedAt: string | null }
 export type InventorySession = { id: string; status: 'active' | 'completed'; createdAt: string; completedAt: string | null; totalCount: number; verifiedCount: number; presentCount: number; absentCount: number; deletedCount: number; items: InventoryItem[] }
 export type InventoryOverview = { active: InventorySession | null; history: InventorySession[] }
+export type TrashItem = LegoSet & { deletedAt: string; expiresAt: string }

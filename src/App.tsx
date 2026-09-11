@@ -6,6 +6,7 @@ import { LoginPage } from './components/LoginPage'
 import { InventoryModal } from './components/InventoryModal'
 import { SetForm } from './components/SetForm'
 import { StatisticsBreakdown } from './components/StatisticsBreakdown'
+import { TrashModal } from './components/TrashModal'
 import type { CollectionSummary, LegoSet, LegoSetPayload, User } from './types'
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
@@ -25,6 +26,7 @@ function App() {
   const [authLoading, setAuthLoading] = useState(true)
   const [accountOpen, setAccountOpen] = useState(false)
   const [inventoryOpen, setInventoryOpen] = useState(false)
+  const [trashOpen, setTrashOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [sets, setSets] = useState<LegoSet[]>([])
   const [latestSet, setLatestSet] = useState<LegoSet | undefined>()
@@ -98,7 +100,7 @@ function App() {
   useEffect(() => { const logout = () => setUser(null); window.addEventListener('atypibrick:unauthorized', logout); return () => window.removeEventListener('atypibrick:unauthorized', logout) }, [])
   const openCreate = () => { setEditing(null); setFormOpen(true) }
   const save = async (payload: LegoSetPayload) => { if (editing) await collectionApi.update(editing.id, payload); else await collectionApi.create(payload); setFormOpen(false); await load(query.trim()) }
-  const remove = async (item: LegoSet) => { if (!confirm(`Supprimer « ${item.name} » de votre collection ?`)) return; await collectionApi.remove(item.id); await load(query.trim()) }
+  const remove = async (item: LegoSet) => { if (!confirm(`Placer « ${item.name} » dans la corbeille ? Vous pourrez le restaurer pendant 30 jours.`)) return; await collectionApi.remove(item.id); await load(query.trim()) }
   const inventoryCompleted = async () => { setInventoryOpen(false); await load(query.trim()) }
 
   if (authLoading) return <div className="auth-loader"><div className="loader" /><span>ATYPIBRICK</span></div>
@@ -112,6 +114,7 @@ function App() {
       <nav className="sidebar-nav" aria-label="Navigation principale">
         <small>ESPACE COLLECTION</small>
         <a className="active" href="#collection" onClick={() => setMenuOpen(false)}><Library /> Ma collection</a>
+        <button type="button" onClick={() => { setTrashOpen(true); setMenuOpen(false) }}><Trash2 /> Corbeille</button>
         <small>ATYPIBRICK</small>
         <a href="https://atypikbzh.fr/atypibrick/"><ExternalLink /> Découvrir l’univers</a>
       </nav>
@@ -145,6 +148,7 @@ function App() {
     {formOpen && <SetForm item={editing} onClose={() => setFormOpen(false)} onSubmit={save} />}
     {accountOpen && <AccountModal user={user} onClose={() => setAccountOpen(false)} />}
     {inventoryOpen && <InventoryModal onClose={() => setInventoryOpen(false)} onCompleted={inventoryCompleted} />}
+    {trashOpen && <TrashModal onClose={() => setTrashOpen(false)} onRestored={() => load(query.trim())} />}
   </div>
 }
 
