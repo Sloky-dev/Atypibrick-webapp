@@ -3,13 +3,14 @@ import { Box, Download, LoaderCircle, Puzzle, X } from 'lucide-react'
 import { missingPartsApi } from '../api'
 import type { MissingPartsSetSummary } from '../types'
 
-const csvCell = (value: string | number | null) => `"${String(value ?? '').replaceAll('"', '""')}"`
-
 function exportCsv(groups: MissingPartsSetSummary[], filename: string) {
-  const header = ['Set', 'Nom du set', 'Element ID', 'Design ID', 'Pièce', 'Quantité', 'Disponible', 'Prix', 'Devise']
-  const rows = groups.flatMap((group) => group.parts.map((part) => [group.setNumber, group.setName, part.elementId, part.designId, part.name, part.quantity, part.inStock ? 'Oui' : 'Non', part.price, part.currency]))
-  const content = [header, ...rows].map((row) => row.map(csvCell).join(';')).join('\r\n')
-  const url = URL.createObjectURL(new Blob([`\uFEFF${content}`], { type: 'text/csv;charset=utf-8' }))
+  const quantities = new Map<string, number>()
+  groups.forEach((group) => group.parts.forEach((part) => {
+    quantities.set(part.elementId, (quantities.get(part.elementId) ?? 0) + part.quantity)
+  }))
+  const rows = [...quantities.entries()].sort(([first], [second]) => first.localeCompare(second, undefined, { numeric: true }))
+  const content = ['elementId,quantity', ...rows.map(([elementId, quantity]) => `${elementId},${quantity}`)].join('\r\n')
+  const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }))
   const link = document.createElement('a')
   link.href = url
   link.download = filename
