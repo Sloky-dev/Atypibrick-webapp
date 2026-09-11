@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Box, CalendarDays, ChevronRight, ClipboardCheck, ExternalLink, LayoutGrid, Library, LogOut, Menu, PackagePlus, Palette, Pencil, Search, Tags, Trash2, UserRound, X } from 'lucide-react'
+import { Box, CalendarDays, ChevronRight, ClipboardCheck, ExternalLink, LayoutGrid, Library, LogOut, Menu, PackagePlus, Palette, Pencil, Search, SlidersHorizontal, Tags, Trash2, UserRound, X } from 'lucide-react'
 import { authApi, clearSession, collectionApi } from './api'
 import { AccountModal } from './components/AccountModal'
 import { LoginPage } from './components/LoginPage'
@@ -7,7 +7,8 @@ import { InventoryModal } from './components/InventoryModal'
 import { SetForm } from './components/SetForm'
 import { StatisticsBreakdown } from './components/StatisticsBreakdown'
 import { TrashModal } from './components/TrashModal'
-import type { CollectionSummary, LegoSet, LegoSetPayload, User } from './types'
+import { CollectionFiltersPanel, emptyCollectionFilters } from './components/CollectionFiltersPanel'
+import type { CollectionFilters, CollectionSummary, LegoSet, LegoSetPayload, User } from './types'
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 const PAGE_SIZE = 9
@@ -35,6 +36,8 @@ function App() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [summary, setSummary] = useState<CollectionSummary>({ setCount: 0, itemCount: 0, totalInvested: '0', totalParts: 0, themes: [], conditions: [], purchaseYears: [] })
   const [query, setQuery] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filters, setFilters] = useState<CollectionFilters>(emptyCollectionFilters)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<LegoSet | null>(null)
   const [loading, setLoading] = useState(true)
@@ -57,7 +60,7 @@ function App() {
     const generation = ++listGeneration.current
     setLoading(true); setError('')
     try {
-      const [page, totals] = await Promise.all([collectionApi.list(search, null, PAGE_SIZE), collectionApi.summary()])
+      const [page, totals] = await Promise.all([collectionApi.list(search, null, PAGE_SIZE, filters), collectionApi.summary()])
       if (generation !== listGeneration.current) return
       setSets(page.items); setHasMore(page.hasMore); setNextCursor(page.nextCursor); setSummary(totals)
       if (!search) setLatestSet(page.items[0])
@@ -67,14 +70,14 @@ function App() {
     } finally {
       if (generation === listGeneration.current) setLoading(false)
     }
-  }, [repairImagesInBackground])
+  }, [filters, repairImagesInBackground])
 
   const loadMore = useCallback(async () => {
     if (!hasMore || !nextCursor || loadingMoreRef.current) return
     loadingMoreRef.current = true; setLoadingMore(true)
     const generation = listGeneration.current
     try {
-      const page = await collectionApi.list(query.trim(), nextCursor, PAGE_SIZE)
+      const page = await collectionApi.list(query.trim(), nextCursor, PAGE_SIZE, filters)
       if (generation !== listGeneration.current) return
       setSets((current) => [...current, ...page.items.filter((item) => !current.some((existing) => existing.id === item.id))])
       setHasMore(page.hasMore)
@@ -85,7 +88,7 @@ function App() {
     } finally {
       loadingMoreRef.current = false; setLoadingMore(false)
     }
-  }, [hasMore, nextCursor, query, repairImagesInBackground])
+  }, [filters, hasMore, nextCursor, query, repairImagesInBackground])
   useEffect(() => {
     authApi.me().then(setUser).catch(clearSession).finally(() => setAuthLoading(false))
   }, [])
@@ -102,6 +105,7 @@ function App() {
   const save = async (payload: LegoSetPayload) => { if (editing) await collectionApi.update(editing.id, payload); else await collectionApi.create(payload); setFormOpen(false); await load(query.trim()) }
   const remove = async (item: LegoSet) => { if (!confirm(`Placer « ${item.name} » dans la corbeille ? Vous pourrez le restaurer pendant 30 jours.`)) return; await collectionApi.remove(item.id); await load(query.trim()) }
   const inventoryCompleted = async () => { setInventoryOpen(false); await load(query.trim()) }
+  const activeFilterCount = Object.entries(filters).filter(([key, value]) => key === 'sort' ? value !== 'newest' : Boolean(value)).length
 
   if (authLoading) return <div className="auth-loader"><div className="loader" /><span>ATYPIBRICK</span></div>
   if (!user) return <LoginPage onLogin={setUser} />
@@ -133,7 +137,8 @@ function App() {
         <StatisticsBreakdown title="RÉPARTITION PAR ÉTAT" subtitle="État de vos exemplaires" icon={<Tags />} items={summary.conditions} />
         <StatisticsBreakdown title="ANNÉES D’ACHAT" subtitle="Chronologie de la collection" icon={<CalendarDays />} items={summary.purchaseYears} />
       </section>
-      <section className="collection" id="collection"><div className="section-head"><div><span className="eyebrow">INVENTAIRE</span><h2>Mes sets LEGO</h2></div><div className="search"><Search size={18} /><input aria-label="Rechercher" placeholder="Rechercher un set, un thème…" value={query} onChange={(e) => setQuery(e.target.value)} /></div></div>
+      <section className="collection" id="collection"><div className="section-head"><div><span className="eyebrow">INVENTAIRE</span><h2>Mes sets LEGO</h2></div><div className="collection-tools"><button className={`filter-toggle ${activeFilterCount ? 'active' : ''}`} onClick={() => setFiltersOpen((open) => !open)}><SlidersHorizontal /> Filtres{activeFilterCount ? ` (${activeFilterCount})` : ''}</button><div className="search"><Search size={18} /><input aria-label="Rechercher" placeholder="Rechercher un set, un thème…" value={query} onChange={(e) => setQuery(e.target.value)} /></div></div></div>
+        {filtersOpen && <CollectionFiltersPanel filters={filters} summary={summary} onChange={setFilters} onClose={() => setFiltersOpen(false)} />}
         {error && <div className="error"><strong>Le backend ne répond pas.</strong><span>{error}</span><button onClick={() => void load()}>Réessayer</button></div>}
         {!error && loading && <div className="empty"><div className="loader" /><p>Chargement de votre collection…</p></div>}
         {!error && !loading && sets.length === 0 && <div className="empty"><span className="empty-icon"><LayoutGrid /></span><h3>{query ? 'Aucun set ne correspond' : 'Votre collection commence ici'}</h3><p>{query ? 'Essayez une autre recherche.' : 'Ajoutez votre premier set LEGO pour commencer à suivre votre investissement.'}</p>{!query && <button className="button primary" onClick={openCreate}><PackagePlus size={18} /> Ajouter mon premier set</button>}</div>}

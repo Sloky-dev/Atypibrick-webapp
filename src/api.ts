@@ -1,4 +1,4 @@
-import type { CollectionSummary, InventoryOverview, InventorySession, LegoSet, LegoSetNameLookup, LegoSetPage, LegoSetPayload, LoginResponse, TokenPair, TrashItem, User } from './types'
+import type { CollectionFilters, CollectionSummary, InventoryOverview, InventorySession, LegoSet, LegoSetNameLookup, LegoSetPage, LegoSetPayload, LoginResponse, TokenPair, TrashItem, User } from './types'
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api/atypibrick/v1').replace(/\/$/, '')
 const ACCESS_TOKEN_KEY = 'atypibrick_token'
@@ -45,10 +45,22 @@ async function request<T>(path: string, init?: RequestInit, retry = true): Promi
 }
 
 export const collectionApi = {
-  list: (query = '', cursor: string | null = null, limit = 9) => {
+  list: (query = '', cursor: string | null = null, limit = 9, filters?: CollectionFilters) => {
     const params = new URLSearchParams({ limit: String(limit) })
     if (query) params.set('q', query)
     if (cursor) params.set('cursor', cursor)
+    if (filters) {
+      if (filters.theme) params.set('theme', filters.theme)
+      if (filters.condition) params.set('condition', filters.condition)
+      if (filters.gift) params.set('isGift', filters.gift)
+      if (filters.purchaseDateFrom) params.set('purchaseDateFrom', filters.purchaseDateFrom)
+      if (filters.purchaseDateTo) params.set('purchaseDateTo', filters.purchaseDateTo)
+      if (filters.priceMin) params.set('priceMin', filters.priceMin)
+      if (filters.priceMax) params.set('priceMax', filters.priceMax)
+      if (filters.partsMin) params.set('partsMin', filters.partsMin)
+      if (filters.partsMax) params.set('partsMax', filters.partsMax)
+      params.set('sort', filters.sort)
+    }
     return request<LegoSetPage>(`/collection?${params}`)
   },
   summary: () => request<CollectionSummary>('/collection/summary'),
