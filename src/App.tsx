@@ -11,16 +11,13 @@ import type { CollectionSummary, LegoSet, LegoSetPayload, User } from './types'
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 const PAGE_SIZE = 9
 
-async function repairMissingImages(items: LegoSet[]): Promise<LegoSet[]> {
-  const repaired = [...items]
-  for (let start = 0; start < repaired.length; start += 3) {
-    const batch = repaired.slice(start, start + 3)
-    const results = await Promise.all(batch.map((item) =>
-      item.imageUrl ? item : collectionApi.repairImage(item.id).catch(() => item),
-    ))
-    repaired.splice(start, results.length, ...results)
+async function repairMissingImages(items: LegoSet[], onBatch: (items: LegoSet[]) => void): Promise<void> {
+  const missing = items.filter((item) => !item.imageUrl)
+  for (let start = 0; start < missing.length; start += 3) {
+    const batch = missing.slice(start, start + 3)
+    const repaired = await Promise.all(batch.map((item) => collectionApi.repairImage(item.id).catch(() => item)))
+    onBatch(repaired)
   }
-  return repaired
 }
 
 function App() {
@@ -44,21 +41,31 @@ function App() {
   const loadingMoreRef = useRef(false)
   const loadMoreSentinel = useRef<HTMLDivElement | null>(null)
 
+  const repairImagesInBackground = useCallback((items: LegoSet[], generation: number) => {
+    if (!items.some((item) => !item.imageUrl)) return
+    void repairMissingImages(items, (repaired) => {
+      if (generation !== listGeneration.current) return
+      const replacements = new Map(repaired.map((item) => [item.id, item]))
+      setSets((current) => current.map((item) => replacements.get(item.id) ?? item))
+      setLatestSet((current) => current ? replacements.get(current.id) ?? current : current)
+    })
+  }, [])
+
   const load = useCallback(async (search = '') => {
     const generation = ++listGeneration.current
     setLoading(true); setError('')
     try {
       const [page, totals] = await Promise.all([collectionApi.list(search, null, PAGE_SIZE), collectionApi.summary()])
-      const items = await repairMissingImages(page.items)
       if (generation !== listGeneration.current) return
-      setSets(items); setHasMore(page.hasMore); setNextCursor(page.nextCursor); setSummary(totals)
-      if (!search) setLatestSet(items[0])
+      setSets(page.items); setHasMore(page.hasMore); setNextCursor(page.nextCursor); setSummary(totals)
+      if (!search) setLatestSet(page.items[0])
+      repairImagesInBackground(page.items, generation)
     } catch (e) {
       if (generation === listGeneration.current) setError(e instanceof Error ? e.message : 'Impossible de charger la collection')
     } finally {
       if (generation === listGeneration.current) setLoading(false)
     }
-  }, [])
+  }, [repairImagesInBackground])
 
   const loadMore = useCallback(async () => {
     if (!hasMore || !nextCursor || loadingMoreRef.current) return
@@ -66,17 +73,17 @@ function App() {
     const generation = listGeneration.current
     try {
       const page = await collectionApi.list(query.trim(), nextCursor, PAGE_SIZE)
-      const items = await repairMissingImages(page.items)
       if (generation !== listGeneration.current) return
-      setSets((current) => [...current, ...items.filter((item) => !current.some((existing) => existing.id === item.id))])
+      setSets((current) => [...current, ...page.items.filter((item) => !current.some((existing) => existing.id === item.id))])
       setHasMore(page.hasMore)
       setNextCursor(page.nextCursor)
+      repairImagesInBackground(page.items, generation)
     } catch (e) {
       if (generation === listGeneration.current) setError(e instanceof Error ? e.message : 'Impossible de charger la suite')
     } finally {
       loadingMoreRef.current = false; setLoadingMore(false)
     }
-  }, [hasMore, nextCursor, query])
+  }, [hasMore, nextCursor, query, repairImagesInBackground])
   useEffect(() => {
     authApi.me().then(setUser).catch(clearSession).finally(() => setAuthLoading(false))
   }, [])
