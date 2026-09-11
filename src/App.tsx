@@ -27,8 +27,6 @@ function App() {
   const [authLoading, setAuthLoading] = useState(true)
   const [accountOpen, setAccountOpen] = useState(false)
   const [inventoryOpen, setInventoryOpen] = useState(false)
-  const [inventoryLoading, setInventoryLoading] = useState(false)
-  const [inventoryItems, setInventoryItems] = useState<LegoSet[]>([])
   const [menuOpen, setMenuOpen] = useState(false)
   const [sets, setSets] = useState<LegoSet[]>([])
   const [latestSet, setLatestSet] = useState<LegoSet | undefined>()
@@ -93,21 +91,7 @@ function App() {
   const openCreate = () => { setEditing(null); setFormOpen(true) }
   const save = async (payload: LegoSetPayload) => { if (editing) await collectionApi.update(editing.id, payload); else await collectionApi.create(payload); setFormOpen(false); await load(query.trim()) }
   const remove = async (item: LegoSet) => { if (!confirm(`Supprimer « ${item.name} » de votre collection ?`)) return; await collectionApi.remove(item.id); await load(query.trim()) }
-  const deleteMissing = async (ids: string[]) => { await collectionApi.removeMany(ids); await load(query.trim()) }
-  const openInventory = async () => {
-    setInventoryLoading(true)
-    try {
-      const allItems: LegoSet[] = []
-      let cursor: string | null = null
-      do {
-        const page = await collectionApi.list('', cursor, 50)
-        allItems.push(...page.items)
-        cursor = page.nextCursor
-      } while (cursor)
-      setInventoryItems(await repairMissingImages(allItems)); setInventoryOpen(true)
-    } catch (e) { setError(e instanceof Error ? e.message : 'Impossible de préparer l’inventaire') }
-    finally { setInventoryLoading(false) }
-  }
+  const inventoryCompleted = async () => { setInventoryOpen(false); await load(query.trim()) }
 
   if (authLoading) return <div className="auth-loader"><div className="loader" /><span>ATYPIBRICK</span></div>
   if (!user) return <LoginPage onLogin={setUser} />
@@ -130,7 +114,7 @@ function App() {
     <header className="mobile-header"><a className="brand" href="#"><img src="/atypik-mark.svg" alt="" width="38" height="38" /><span><strong>ATYPIBRICK</strong><small>UN UNIVERS ATYPIK</small></span></a><button onClick={() => setMenuOpen(true)} aria-label="Ouvrir le menu"><Menu /></button></header>
     <main>
       <section className="hero dashboard-hero">
-        <div className="hero-dashboard-copy"><span className="eyebrow">VUE D’ENSEMBLE</span><h1>Ma collection<br /><em>LEGO.</em></h1><p>Retrouvez vos sets, suivez votre investissement et contrôlez votre collection depuis un seul espace.</p><div className="hero-actions"><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button><button className="button ghost" disabled={inventoryLoading} onClick={() => void openInventory()}><ClipboardCheck /> {inventoryLoading ? 'Préparation…' : 'Faire l’inventaire'}</button></div><div className="hero-summary"><span><strong>{summary.itemCount}</strong><small>EXEMPLAIRE{summary.itemCount > 1 ? 'S' : ''}</small></span><span><strong>{summary.totalParts.toLocaleString('fr-FR')}</strong><small>BRIQUES</small></span><span><strong>{euro.format(Number(summary.totalInvested))}</strong><small>INVESTIS</small></span></div></div>
+        <div className="hero-dashboard-copy"><span className="eyebrow">VUE D’ENSEMBLE</span><h1>Ma collection<br /><em>LEGO.</em></h1><p>Retrouvez vos sets, suivez votre investissement et contrôlez votre collection depuis un seul espace.</p><div className="hero-actions"><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button><button className="button ghost" onClick={() => setInventoryOpen(true)}><ClipboardCheck /> Faire l’inventaire</button></div><div className="hero-summary"><span><strong>{summary.itemCount}</strong><small>EXEMPLAIRE{summary.itemCount > 1 ? 'S' : ''}</small></span><span><strong>{summary.totalParts.toLocaleString('fr-FR')}</strong><small>BRIQUES</small></span><span><strong>{euro.format(Number(summary.totalInvested))}</strong><small>INVESTIS</small></span></div></div>
         <div className="latest-set-panel">{latestSet ? <><div className="latest-set-head"><span>DERNIER AJOUT</span><button onClick={() => { setEditing(latestSet); setFormOpen(true) }}>Modifier <Pencil /></button></div><div className="latest-set-image">{latestSet.imageUrl ? <img src={latestSet.imageUrl} alt={`Boîte du set ${latestSet.name}`} /> : <Box />}</div><div className="latest-set-info"><small>{latestSet.theme || 'Sans thème'} · #{latestSet.setNumber}</small><strong>{latestSet.name}</strong><span>{latestSet.isGift ? 'Reçu en cadeau' : euro.format(Number(latestSet.purchasePrice))}</span></div></> : <><div className="latest-set-empty"><Box /><span>VOTRE PREMIER SET</span><strong>La collection commence ici.</strong><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button></div></>}</div>
       </section>
       <section className="stats" id="stats">
@@ -152,7 +136,7 @@ function App() {
     </div>
     {formOpen && <SetForm item={editing} onClose={() => setFormOpen(false)} onSubmit={save} />}
     {accountOpen && <AccountModal user={user} onClose={() => setAccountOpen(false)} />}
-    {inventoryOpen && <InventoryModal items={inventoryItems} onClose={() => setInventoryOpen(false)} onDeleteMissing={deleteMissing} />}
+    {inventoryOpen && <InventoryModal onClose={() => setInventoryOpen(false)} onCompleted={inventoryCompleted} />}
   </div>
 }
 
