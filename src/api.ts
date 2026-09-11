@@ -45,9 +45,10 @@ async function request<T>(path: string, init?: RequestInit, retry = true): Promi
 }
 
 export const collectionApi = {
-  list: (query = '', offset = 0, limit = 9) => {
-    const params = new URLSearchParams({ offset: String(offset), limit: String(limit) })
+  list: (query = '', cursor: string | null = null, limit = 9) => {
+    const params = new URLSearchParams({ limit: String(limit) })
     if (query) params.set('q', query)
+    if (cursor) params.set('cursor', cursor)
     return request<LegoSetPage>(`/collection?${params}`)
   },
   summary: () => request<CollectionSummary>('/collection/summary'),

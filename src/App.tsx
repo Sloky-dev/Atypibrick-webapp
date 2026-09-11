@@ -33,6 +33,7 @@ function App() {
   const [sets, setSets] = useState<LegoSet[]>([])
   const [latestSet, setLatestSet] = useState<LegoSet | undefined>()
   const [hasMore, setHasMore] = useState(false)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
   const [summary, setSummary] = useState<CollectionSummary>({ setCount: 0, itemCount: 0, totalInvested: '0', totalParts: 0 })
   const [query, setQuery] = useState('')
@@ -48,10 +49,10 @@ function App() {
     const generation = ++listGeneration.current
     setLoading(true); setError('')
     try {
-      const [page, totals] = await Promise.all([collectionApi.list(search, 0, PAGE_SIZE), collectionApi.summary()])
+      const [page, totals] = await Promise.all([collectionApi.list(search, null, PAGE_SIZE), collectionApi.summary()])
       const items = await repairMissingImages(page.items)
       if (generation !== listGeneration.current) return
-      setSets(items); setHasMore(page.hasMore); setSummary(totals)
+      setSets(items); setHasMore(page.hasMore); setNextCursor(page.nextCursor); setSummary(totals)
       if (!search) setLatestSet(items[0])
     } catch (e) {
       if (generation === listGeneration.current) setError(e instanceof Error ? e.message : 'Impossible de charger la collection')
@@ -61,21 +62,22 @@ function App() {
   }, [])
 
   const loadMore = useCallback(async () => {
-    if (!hasMore || loadingMoreRef.current) return
+    if (!hasMore || !nextCursor || loadingMoreRef.current) return
     loadingMoreRef.current = true; setLoadingMore(true)
     const generation = listGeneration.current
     try {
-      const page = await collectionApi.list(query.trim(), sets.length, PAGE_SIZE)
+      const page = await collectionApi.list(query.trim(), nextCursor, PAGE_SIZE)
       const items = await repairMissingImages(page.items)
       if (generation !== listGeneration.current) return
       setSets((current) => [...current, ...items.filter((item) => !current.some((existing) => existing.id === item.id))])
       setHasMore(page.hasMore)
+      setNextCursor(page.nextCursor)
     } catch (e) {
       if (generation === listGeneration.current) setError(e instanceof Error ? e.message : 'Impossible de charger la suite')
     } finally {
       loadingMoreRef.current = false; setLoadingMore(false)
     }
-  }, [hasMore, query, sets.length])
+  }, [hasMore, nextCursor, query])
   useEffect(() => {
     authApi.me().then(setUser).catch(clearSession).finally(() => setAuthLoading(false))
   }, [])
@@ -96,12 +98,12 @@ function App() {
     setInventoryLoading(true)
     try {
       const allItems: LegoSet[] = []
-      let more = true
-      while (more) {
-        const page = await collectionApi.list('', allItems.length, 50)
+      let cursor: string | null = null
+      do {
+        const page = await collectionApi.list('', cursor, 50)
         allItems.push(...page.items)
-        more = page.hasMore
-      }
+        cursor = page.nextCursor
+      } while (cursor)
       setInventoryItems(await repairMissingImages(allItems)); setInventoryOpen(true)
     } catch (e) { setError(e instanceof Error ? e.message : 'Impossible de préparer l’inventaire') }
     finally { setInventoryLoading(false) }
