@@ -7,7 +7,8 @@ export type LegoSet = {
   purchaseDate: string | null
   purchasePrice: string
   isGift: boolean
-  condition: string
+  isSealed: boolean
+  condition: 'Neuf' | 'Occasion'
   imageUrl: string | null
   missingPartsCount: number
   notes: string
