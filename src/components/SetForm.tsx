@@ -3,7 +3,7 @@ import { Check, LoaderCircle, X } from 'lucide-react'
 import { legoSetApi } from '../api'
 import type { LegoSet, LegoSetNameLookup, LegoSetPayload } from '../types'
 
-const emptyForm: LegoSetPayload = { setNumber: '', purchaseDate: null, purchasePrice: '0', isGift: false, isSealed: false, condition: 'Neuf', notes: '' }
+const emptyForm: LegoSetPayload = { brand: 'LEGO', setNumber: '', purchaseDate: null, purchasePrice: '0', isGift: false, isSealed: false, condition: 'Neuf', notes: '' }
 
 type Props = { item: LegoSet | null; onClose: () => void; onSubmit: (payload: LegoSetPayload) => Promise<void> }
 
@@ -13,17 +13,17 @@ export function SetForm({ item, onClose, onSubmit }: Props) {
   const [resolvedSet, setResolvedSet] = useState<LegoSetNameLookup | null>(null)
   const [lookupError, setLookupError] = useState('')
   const [lookingUp, setLookingUp] = useState(false)
-  useEffect(() => { setForm(item ? { setNumber: item.setNumber, purchaseDate: item.purchaseDate, purchasePrice: item.purchasePrice, isGift: item.isGift, isSealed: item.isSealed, condition: item.condition, notes: item.notes } : emptyForm); setResolvedSet(item ? { setNumber: item.setNumber, name: item.name, theme: item.theme, numParts: item.numParts, imageUrl: item.imageUrl } : null) }, [item])
+  useEffect(() => { setForm(item ? { brand: item.brand, setNumber: item.setNumber, purchaseDate: item.purchaseDate, purchasePrice: item.purchasePrice, isGift: item.isGift, isSealed: item.isSealed, condition: item.condition, notes: item.notes } : emptyForm); setResolvedSet(item ? { setNumber: item.setNumber, name: item.name, theme: item.theme, numParts: item.numParts, imageUrl: item.imageUrl } : null) }, [item])
   useEffect(() => {
     const reference = form.setNumber.trim()
     const normalize = (value: string) => value.toLowerCase().replace(/-1$/, '')
     if (!reference) { setResolvedSet(null); setLookupError(''); setLookingUp(false); return }
-    if (item && normalize(reference) === normalize(item.setNumber)) { setResolvedSet({ setNumber: item.setNumber, name: item.name, theme: item.theme, numParts: item.numParts, imageUrl: item.imageUrl }); setLookupError(''); setLookingUp(false); return }
+    if (item && form.brand === item.brand && normalize(reference) === normalize(item.setNumber)) { setResolvedSet({ setNumber: item.setNumber, name: item.name, theme: item.theme, numParts: item.numParts, imageUrl: item.imageUrl }); setLookupError(''); setLookingUp(false); return }
     setResolvedSet(null); setLookupError(''); setLookingUp(true)
     let active = true
     const timer = window.setTimeout(async () => {
       try {
-        const result = await legoSetApi.lookup(reference)
+        const result = await legoSetApi.lookup(reference, form.brand)
         if (active) { setResolvedSet(result); setForm((current) => ({ ...current, setNumber: result.setNumber })) }
       } catch (reason) {
         if (active) setLookupError(reason instanceof Error ? reason.message : 'Référence introuvable')
@@ -32,13 +32,14 @@ export function SetForm({ item, onClose, onSubmit }: Props) {
       }
     }, 550)
     return () => { active = false; window.clearTimeout(timer) }
-  }, [form.setNumber, item])
+  }, [form.brand, form.setNumber, item])
   const update = (key: keyof LegoSetPayload, value: string | number | null) => setForm((current) => ({ ...current, [key]: value }))
 
   return <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
     <form className="modal" onSubmit={async (e) => { e.preventDefault(); setSaving(true); try { await onSubmit(form) } finally { setSaving(false) } }}>
       <div className="modal-head"><div><span className="eyebrow">INVENTAIRE</span><h2>{item ? 'Modifier le set' : 'Ajouter un set'}</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Fermer"><X /></button></div>
       <div className="form-grid">
+        <label>Marque<select value={form.brand} onChange={(e) => setForm((current) => ({ ...current, brand: e.target.value as 'LEGO' | 'CaDA', setNumber: '' }))}><option>LEGO</option><option>CaDA</option></select></label>
         <label>Numéro du set<input required autoFocus placeholder="Ex. 10316" value={form.setNumber} onChange={(e) => update('setNumber', e.target.value)} /></label>
         <label>Set identifié<div className={`resolved-set ${lookupError ? 'invalid' : resolvedSet ? 'valid' : ''}`}>{lookingUp ? <><LoaderCircle className="lookup-spinner" /> Recherche…</> : resolvedSet ? <><Check /> {resolvedSet.name}</> : lookupError || 'Saisissez une référence LEGO ou CaDA valide'}</div></label>
         {resolvedSet && <div className="lookup-preview full"><div className="lookup-image">{resolvedSet.imageUrl ? <img src={resolvedSet.imageUrl} alt={`Boîte du set ${resolvedSet.setNumber}`} /> : <span>Image indisponible</span>}</div><div><small>INFORMATIONS DU SET</small><strong>{resolvedSet.name}</strong><p>{resolvedSet.theme || 'Thème non renseigné'}{resolvedSet.numParts ? ` · ${resolvedSet.numParts.toLocaleString('fr-FR')} pièces` : ''}</p></div></div>}

@@ -50,6 +50,7 @@ export const collectionApi = {
     if (query) params.set('q', query)
     if (cursor) params.set('cursor', cursor)
     if (filters) {
+      if (filters.brand) params.set('brand', filters.brand)
       if (filters.theme) params.set('theme', filters.theme)
       if (filters.condition) params.set('condition', filters.condition)
       if (filters.gift) params.set('isGift', filters.gift)
@@ -72,7 +73,7 @@ export const collectionApi = {
 }
 
 export const legoSetApi = {
-  lookup: (setNumber: string) => request<LegoSetNameLookup>(`/sets/lookup?setNumber=${encodeURIComponent(setNumber)}`),
+  lookup: (setNumber: string, brand: 'LEGO' | 'CaDA') => request<LegoSetNameLookup>(`/sets/lookup?setNumber=${encodeURIComponent(setNumber)}&brand=${encodeURIComponent(brand)}`),
 }
 
 export const inventoryApi = {
