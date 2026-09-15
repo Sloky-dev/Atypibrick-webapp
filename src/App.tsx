@@ -139,7 +139,7 @@ function App() {
       </section>
       <section className="stats breakdown-stats" id="stats">
         <StatisticsBreakdown title="RÉPARTITION PAR THÈME" subtitle="Univers les plus présents" icon={<Palette />} items={summary.themes} />
-        <StatisticsBreakdown title="RÉPARTITION PAR ÉTAT" subtitle="État de vos exemplaires" icon={<Tags />} items={summary.conditions} />
+        <StatisticsBreakdown title="CONDITIONS D’ACHAT" subtitle="Sets achetés neufs ou d’occasion" icon={<Tags />} items={summary.conditions} />
         <StatisticsBreakdown title="ANNÉES D’ACHAT" subtitle="Chronologie de la collection" icon={<CalendarDays />} items={summary.purchaseYears} />
       </section>
       <section className="collection" id="collection"><div className="section-head"><div><span className="eyebrow">INVENTAIRE</span><h2>Mes sets LEGO</h2></div><div className="collection-tools"><button className={`filter-toggle ${activeFilterCount ? 'active' : ''}`} onClick={() => setFiltersOpen((open) => !open)}><SlidersHorizontal /> Filtres{activeFilterCount ? ` (${activeFilterCount})` : ''}</button><div className="search"><Search size={18} /><input aria-label="Rechercher" placeholder="Rechercher un set, un thème…" value={query} onChange={(e) => setQuery(e.target.value)} /></div></div></div>
