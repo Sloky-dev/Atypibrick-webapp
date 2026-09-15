@@ -35,6 +35,7 @@ function App() {
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [accountOpen, setAccountOpen] = useState(false)
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [inventoryOpen, setInventoryOpen] = useState(false)
   const [trashOpen, setTrashOpen] = useState(false)
   const [missingPartsSet, setMissingPartsSet] = useState<LegoSet | null>(null)
@@ -134,7 +135,7 @@ function App() {
         <small>ATYPIBRICK</small>
         <a href="https://atypikbzh.fr/atypibrick/"><ExternalLink /> Découvrir l’univers</a>
       </nav>
-      <div className="sidebar-account"><button onClick={() => { setAccountOpen(true); setMenuOpen(false) }}><span className="account-avatar"><UserRound /></span><span><strong>Mon compte</strong><small>{user.email}</small></span><ChevronRight /></button><button className="logout-button" onClick={logout}><LogOut /> Déconnexion</button></div>
+      <div className={`sidebar-account ${accountMenuOpen ? 'open' : ''}`}><button type="button" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}><span className="account-avatar"><UserRound /></span><span><strong>Mon compte</strong><small>{user.email}</small></span><ChevronRight /></button>{accountMenuOpen && <div className="account-menu"><button type="button" onClick={() => { setAccountMenuOpen(false); setAccountOpen(true); setMenuOpen(false) }}><UserRound /> Modifier mes informations</button><button type="button" className="danger" onClick={() => { setAccountMenuOpen(false); logout() }}><LogOut /> Déconnexion</button></div>}</div>
     </aside>
     {menuOpen && <button className="sidebar-overlay" onClick={() => setMenuOpen(false)} aria-label="Fermer le menu" />}
     <div className="page-shell">
