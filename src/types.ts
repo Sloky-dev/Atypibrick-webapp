@@ -1,6 +1,6 @@
 export type LegoSet = {
   id: string
-  brand: 'LEGO' | 'CaDA'
+  brand: 'LEGO' | 'CaDA' | 'Jie Star'
   setNumber: string
   name: string
   theme: string | null
@@ -21,7 +21,7 @@ export type LegoSet = {
 
 export type LegoSetPayload = Omit<LegoSet, 'id' | 'name' | 'theme' | 'numParts' | 'imageUrl' | 'missingPartsCount' | 'replacementCost' | 'totalInvested' | 'createdAt' | 'updatedAt'>
 export type LegoSetPage = { items: LegoSet[]; hasMore: boolean; nextCursor: string | null }
-export type CollectionFilters = { brand: '' | 'LEGO' | 'CaDA'; theme: string; condition: string; gift: '' | 'true' | 'false'; purchaseDateFrom: string; purchaseDateTo: string; priceMin: string; priceMax: string; partsMin: string; partsMax: string; sort: 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'parts_asc' | 'parts_desc' | 'purchase_date_asc' | 'purchase_date_desc' }
+export type CollectionFilters = { brand: '' | 'LEGO' | 'CaDA' | 'Jie Star'; theme: string; condition: string; gift: '' | 'true' | 'false'; purchaseDateFrom: string; purchaseDateTo: string; priceMin: string; priceMax: string; partsMin: string; partsMax: string; sort: 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'parts_asc' | 'parts_desc' | 'purchase_date_asc' | 'purchase_date_desc' }
 export type CollectionBreakdownItem = { label: string; count: number }
 export type CollectionSummary = { setCount: number; itemCount: number; totalInvested: string; totalParts: number; brands: CollectionBreakdownItem[]; themes: CollectionBreakdownItem[]; conditions: CollectionBreakdownItem[]; purchaseYears: CollectionBreakdownItem[] }
 export type LegoSetNameLookup = { setNumber: string; name: string; theme: string | null; numParts: number | null; imageUrl: string | null }
