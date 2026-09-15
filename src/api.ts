@@ -73,7 +73,7 @@ export const collectionApi = {
 }
 
 export const legoSetApi = {
-  lookup: (setNumber: string, brand: 'LEGO' | 'CaDA' | 'Jie Star') => request<LegoSetNameLookup>(`/sets/lookup?setNumber=${encodeURIComponent(setNumber)}&brand=${encodeURIComponent(brand)}`),
+  lookup: (setNumber: string, brand: LegoSetPayload['brand']) => request<LegoSetNameLookup>(`/sets/lookup?setNumber=${encodeURIComponent(setNumber)}&brand=${encodeURIComponent(brand)}`),
 }
 
 export const inventoryApi = {
