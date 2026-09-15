@@ -15,13 +15,15 @@ import type { CollectionFilters, CollectionSummary, LegoSet, LegoSetPayload, Use
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 const PAGE_SIZE = 9
 
+function needsImageRepair(item: LegoSet): boolean {
+  const isCada = /^C\d{4,6}W?$/i.test(item.setNumber)
+  const hasVersionedLocalImage = item.imageUrl?.startsWith('/media/atypibrick/sets/')
+    && item.imageUrl.includes('?v=')
+  return !item.imageUrl || (isCada && !hasVersionedLocalImage)
+}
+
 async function repairMissingImages(items: LegoSet[], onBatch: (items: LegoSet[]) => void): Promise<void> {
-  const missing = items.filter((item) => {
-    const isCada = /^C\d{4,6}W?$/i.test(item.setNumber)
-    const hasVersionedLocalImage = item.imageUrl?.startsWith('/media/atypibrick/sets/')
-      && item.imageUrl.includes('?v=')
-    return !item.imageUrl || (isCada && !hasVersionedLocalImage)
-  })
+  const missing = items.filter(needsImageRepair)
   for (let start = 0; start < missing.length; start += 3) {
     const batch = missing.slice(start, start + 3)
     const repaired = await Promise.all(batch.map((item) => collectionApi.repairImage(item.id).catch(() => item)))
@@ -56,7 +58,7 @@ function App() {
   const loadMoreSentinel = useRef<HTMLDivElement | null>(null)
 
   const repairImagesInBackground = useCallback((items: LegoSet[], generation: number) => {
-    if (!items.some((item) => !item.imageUrl)) return
+    if (!items.some(needsImageRepair)) return
     void repairMissingImages(items, (repaired) => {
       if (generation !== listGeneration.current) return
       const replacements = new Map(repaired.map((item) => [item.id, item]))
