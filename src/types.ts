@@ -12,6 +12,8 @@ export type LegoSet = {
   condition: 'Neuf' | 'Occasion'
   imageUrl: string | null
   missingPartsCount: number
+  replacementCost: string
+  totalInvested: string
   notes: string
   createdAt: string
   updatedAt: string
@@ -31,5 +33,5 @@ export type InventorySession = { id: string; status: 'active' | 'completed'; cre
 export type InventoryOverview = { active: InventorySession | null; history: InventorySession[] }
 export type TrashItem = LegoSet & { deletedAt: string; expiresAt: string }
 export type PickABrickPart = { elementId: string; designId: string; name: string; imageUrl: string | null; inStock: boolean; price: string | null; currency: string | null; deliveryChannel: string | null }
-export type MissingPart = PickABrickPart & { id: string; legoSetId: string; quantity: number; availabilityCheckedAt: string }
+export type MissingPart = PickABrickPart & { id: string; legoSetId: string; quantity: number; status: 'missing' | 'replaced'; availabilityCheckedAt: string; replacementPrice: string | null; replacedAt: string | null }
 export type MissingPartsSetSummary = { setId: string; setNumber: string; setName: string; parts: MissingPart[]; totalQuantity: number }

@@ -94,6 +94,7 @@ export const missingPartsApi = {
   list: (setId: string) => request<MissingPart[]>(`/parts/sets/${setId}`),
   add: (setId: string, elementId: string, quantity: number) => request<MissingPart>(`/parts/sets/${setId}`, { method: 'POST', body: JSON.stringify({ elementId, quantity }) }),
   refresh: (id: string) => request<MissingPart>(`/parts/${id}/refresh`, { method: 'POST' }),
+  replace: (id: string, price: number) => request<MissingPart>(`/parts/${id}/replace`, { method: 'POST', body: JSON.stringify({ price }) }),
   remove: (id: string) => request<void>(`/parts/${id}`, { method: 'DELETE' }),
 }
 
