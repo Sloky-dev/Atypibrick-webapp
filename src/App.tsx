@@ -18,7 +18,9 @@ const PAGE_SIZE = 9
 async function repairMissingImages(items: LegoSet[], onBatch: (items: LegoSet[]) => void): Promise<void> {
   const missing = items.filter((item) => {
     const isCada = /^C\d{4,6}W?$/i.test(item.setNumber)
-    return !item.imageUrl || (isCada && !item.imageUrl.startsWith('/media/atypibrick/sets/'))
+    const hasVersionedLocalImage = item.imageUrl?.startsWith('/media/atypibrick/sets/')
+      && item.imageUrl.includes('?v=')
+    return !item.imageUrl || (isCada && !hasVersionedLocalImage)
   })
   for (let start = 0; start < missing.length; start += 3) {
     const batch = missing.slice(start, start + 3)
