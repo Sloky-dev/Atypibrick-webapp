@@ -16,7 +16,10 @@ const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR'
 const PAGE_SIZE = 9
 
 async function repairMissingImages(items: LegoSet[], onBatch: (items: LegoSet[]) => void): Promise<void> {
-  const missing = items.filter((item) => !item.imageUrl)
+  const missing = items.filter((item) => {
+    const isCada = /^C\d{4,6}W?$/i.test(item.setNumber)
+    return !item.imageUrl || (isCada && !item.imageUrl.startsWith('/media/atypibrick/sets/'))
+  })
   for (let start = 0; start < missing.length; start += 3) {
     const batch = missing.slice(start, start + 3)
     const repaired = await Promise.all(batch.map((item) => collectionApi.repairImage(item.id).catch(() => item)))
