@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Camera, CloudUpload, Trash2, VideoOff } from 'lucide-react'
+import { Camera, CloudUpload, Pause, ScanLine, Trash2, VideoOff } from 'lucide-react'
 import { brickRoomApi, type Room, type RoomCapabilities, type RoomPhoto } from '../brickRoomApi'
 import { captureStore, type PendingCapture } from '../roomCaptureStore'
 
@@ -24,6 +24,12 @@ export function RoomCapture({ room, capabilities, onChange }: { room: Room; capa
   const active = useRef(true)
   const cameraGeneration = useRef(0)
   const uploadLock = useRef(false)
+  const captureLock = useRef(false)
+  const scanActive = useRef(false)
+  const scanTimer = useRef<number | null>(null)
+  const lastScanFrame = useRef<Uint8ClampedArray | null>(null)
+  const captureFrame = useRef<(automatic: boolean) => Promise<void>>(async () => {})
+  const [scanning, setScanning] = useState(false)
   const [cameraOn, setCameraOn] = useState(false)
   const [cameraStarting, setCameraStarting] = useState(false)
   const [capturing, setCapturing] = useState(false)
@@ -35,14 +41,22 @@ export function RoomCapture({ room, capabilities, onChange }: { room: Room; capa
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
+  const pauseScan = useCallback(() => {
+    scanActive.current = false
+    if (scanTimer.current !== null) window.clearTimeout(scanTimer.current)
+    scanTimer.current = null
+    setScanning(false)
+  }, [])
+
   const stopCamera = useCallback(() => {
+    pauseScan()
     cameraGeneration.current++
     stream.current?.getTracks().forEach((track) => track.stop())
     stream.current = null
     if (video.current) video.current.srcObject = null
     setCameraOn(false)
     setCameraStarting(false)
-  }, [])
+  }, [pauseScan])
 
   useEffect(() => {
     active.current = true
@@ -87,14 +101,23 @@ export function RoomCapture({ room, capabilities, onChange }: { room: Room; capa
       }
       if (active.current) onChange(await brickRoomApi.get(room.id))
     } catch (e) {
-      if (active.current) setError(`${message(e)} Les photos non envoyées restent sur ce téléphone. Utilisez « Reprendre l’envoi ».`)
+      if (active.current) {
+        pauseScan()
+        setError(`${message(e)} Les photos non envoyées restent sur ce téléphone. Utilisez « Reprendre l’envoi ».`)
+      }
     } finally { uploadLock.current = false; if (active.current) setUploading(false) }
   }
 
-  async function capture() {
+  async function capture(automatic = false) {
     const source = video.current
-    if (!source?.videoWidth || capturing) return
-    setCapturing(true); setError('')
+    if (!source?.videoWidth || source.readyState < 2 || captureLock.current) return
+    if (automatic && !scanActive.current) return
+    if (photos.length + pending.length >= capabilities.maxPhotos) {
+      pauseScan(); setNotice('Limite de capture atteinte. Vous pouvez lancer la reconstruction.'); return
+    }
+    captureLock.current = true
+    setCapturing(true)
+    if (!automatic) setError('')
     try {
       const canvas = document.createElement('canvas')
       const scale = Math.min(1, 1600 / Math.max(source.videoWidth, source.videoHeight))
@@ -105,14 +128,52 @@ export function RoomCapture({ room, capabilities, onChange }: { room: Room; capa
       const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
       let brightness = 0
       for (let i = 0; i < pixels.length; i += 64) brightness += (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3
-      if (brightness / Math.ceil(pixels.length / 64) < 25) throw new Error('La photo est trop sombre. Éclairez davantage la zone avant de capturer.')
+      if (brightness / Math.ceil(pixels.length / 64) < 25) {
+        if (automatic) { setNotice('Image trop sombre : éclairez la zone pour poursuivre le scan.'); return }
+        throw new Error('La photo est trop sombre. Éclairez davantage la zone avant de capturer.')
+      }
+      let signature: Uint8ClampedArray | null = null
+      if (automatic) {
+        const thumbnail = document.createElement('canvas')
+        thumbnail.width = 64; thumbnail.height = 48
+        const thumbnailContext = thumbnail.getContext('2d')!
+        thumbnailContext.drawImage(canvas, 0, 0, 64, 48)
+        signature = thumbnailContext.getImageData(0, 0, 64, 48).data
+        const previous = lastScanFrame.current
+        if (previous) {
+          let difference = 0
+          for (let i = 0; i < signature.length; i += 4) {
+            difference += Math.abs(signature[i] - previous[i]) + Math.abs(signature[i + 1] - previous[i + 1]) + Math.abs(signature[i + 2] - previous[i + 2])
+          }
+          if (difference / (64 * 48 * 3) < 3) {
+            setNotice('Déplacez-vous lentement : cette vue ressemble à la précédente.'); return
+          }
+        }
+      }
       const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Échec de la capture photo')), 'image/jpeg', .9))
+      if (automatic && !scanActive.current) return
       await captureStore.save({ id: crypto.randomUUID(), roomId: room.id, blob, createdAt: Date.now() })
+      if (signature) lastScanFrame.current = signature
+      if (!active.current) return
       setPending(await captureStore.list(room.id))
-      setNotice('Photo conservée. Faites un petit pas de côté en gardant le meuble dans le cadre.')
+      setNotice(automatic ? 'Image conservée. Continuez lentement autour du meuble, sans changer de zoom.' : 'Photo conservée. Faites un petit pas de côté en gardant le meuble dans le cadre.')
       void uploadPending()
-    } catch (e) { setError(message(e)) }
-    finally { setCapturing(false) }
+    } catch (e) { if (active.current) { pauseScan(); setError(message(e)) } }
+    finally { captureLock.current = false; if (active.current) setCapturing(false) }
+  }
+
+  useEffect(() => { captureFrame.current = capture })
+
+  function startScan() {
+    if (scanActive.current || !cameraOn) return
+    scanActive.current = true; setScanning(true); setError('')
+    setNotice('Scan en cours. Déplacez-vous lentement autour du meuble en gardant les mêmes détails visibles.')
+    const next = async () => {
+      if (!scanActive.current || !active.current) return
+      await captureFrame.current(true)
+      if (scanActive.current && active.current) scanTimer.current = window.setTimeout(() => void next(), 1500)
+    }
+    void next()
   }
 
   async function removePhoto(photo: RoomPhoto) {
@@ -136,14 +197,15 @@ export function RoomCapture({ room, capabilities, onChange }: { room: Room; capa
   }
 
   return <div className="room-capture">
-    <div className="room-guide"><strong>Commencez par une étagère ou un coin de pièce</strong><p>Prenez 20 à 40 photos nettes. Déplacez-vous autour du meuble, avec environ deux tiers de l’image en commun entre deux photos. Gardez le même zoom et changez aussi légèrement de hauteur.</p><p>Éclairez la zone, ouvrez les vitrines si possible et évitez les miroirs. Tourner le téléphone sur place ne suffit pas : déplacez-vous pour capturer le relief.</p></div>
+    <div className="room-guide"><strong>Scannez en vous déplaçant, comme pour filmer</strong><p>Ouvrez la caméra, puis démarrez le scan continu. Atypibrick conserve automatiquement des images pendant votre déplacement. Visez 20 à 40 vues nettes en gardant environ deux tiers de l’image en commun entre deux vues.</p><p>Avancez lentement, gardez le même zoom et changez légèrement de hauteur. Éclairez la zone et évitez les reflets. Commencez par une étagère : tourner le téléphone sur place ne suffit pas à capturer le relief.</p></div>
     <div className="room-camera"><video ref={video} playsInline muted aria-label="Aperçu de la caméra" />{!cameraOn && <div className="room-camera-cover"><Camera size={36} /><p>Capturez votre espace directement ici.</p><button className="button primary" disabled={cameraStarting} onClick={() => void startCamera()}>{cameraStarting ? 'Ouverture…' : 'Ouvrir la caméra'}</button></div>}{cameraOn && <div className="room-camera-guide" aria-hidden="true" />}</div>
-    <div className="room-toolbar"><span aria-live="polite"><strong>{photos.length}</strong> photos envoyées{pending.length > 0 && ` · ${pending.length} en attente`}</span>{cameraOn && <><button className="button primary" disabled={capturing || photos.length + pending.length >= capabilities.maxPhotos || starting} onClick={() => void capture()}><Camera size={18} />{capturing ? 'Capture…' : 'Prendre une photo'}</button><button className="button ghost" onClick={stopCamera}><VideoOff size={18} /> Arrêter la caméra</button></>}</div>
+    <div className="room-toolbar"><span aria-live="polite"><strong>{photos.length}</strong> photos envoyées{pending.length > 0 && ` · ${pending.length} en attente`}{scanning && ' · Scan en cours'}</span>{cameraOn && <><button className="button primary" disabled={!scanning && (capturing || photos.length + pending.length >= capabilities.maxPhotos || starting)} onClick={scanning ? pauseScan : startScan}>{scanning ? <Pause size={18} /> : <ScanLine size={18} />}{scanning ? 'Mettre le scan en pause' : 'Démarrer le scan continu'}</button><button className="button ghost" disabled={scanning || capturing || photos.length + pending.length >= capabilities.maxPhotos || starting} onClick={() => void capture()}><Camera size={18} />{capturing && !scanning ? 'Capture…' : 'Prendre une photo'}</button><button className="button ghost" onClick={stopCamera}><VideoOff size={18} /> Arrêter la caméra</button></>}</div>
+    {cameraOn && <p className="room-muted">Le scan conserve des images extraites de la caméra. Aucun fichier vidéo ni son n’est enregistré.</p>}
     {notice && <p className="room-muted" role="status">{notice}</p>}
     {error && <p className="room-error" role="alert">{error}</p>}
-    {pending.length > 0 && <div className="room-toolbar"><button className="button ghost" disabled={uploading} onClick={() => void uploadPending()}><CloudUpload size={18} />{uploading ? 'Envoi en cours…' : 'Reprendre l’envoi'}</button><button className="button ghost" disabled={uploading || capturing} onClick={() => void discardPending()}>Supprimer les photos en attente</button><small>Les photos en attente restent sur ce téléphone, même si vous fermez cette page.</small></div>}
+    {pending.length > 0 && <div className="room-toolbar"><button className="button ghost" disabled={uploading} onClick={() => void uploadPending()}><CloudUpload size={18} />{uploading ? 'Envoi en cours…' : 'Reprendre l’envoi'}</button><button className="button ghost" disabled={uploading || capturing || scanning} onClick={() => void discardPending()}>Supprimer les photos en attente</button><small>Les photos en attente restent sur ce téléphone, même si vous fermez cette page.</small></div>}
     {photos.length > 0 && <details className="room-photo-review" onToggle={(e) => setReviewPhotos(e.currentTarget.open)}><summary>Vérifier les {photos.length} photos envoyées</summary>{reviewPhotos && <div className="room-photos">{photos.map((photo) => <PhotoTile key={photo.id} roomId={room.id} photo={photo} onRemove={() => void removePhoto(photo)} />)}</div>}</details>}
     {!capabilities.workerAvailable && <p className="room-notice">Le traitement 3D est actuellement indisponible. Vous pouvez capturer vos photos et revenir lancer la reconstruction plus tard.</p>}
-    <div className="room-toolbar"><button className="button primary" disabled={photos.length < capabilities.minPhotos || pending.length > 0 || uploading || capturing || starting || !capabilities.workerAvailable} onClick={() => void startReconstruction()}>{starting ? 'Démarrage…' : 'Construire la vue 3D'}</button><small>Au moins {capabilities.minPhotos} photos · jusqu’à {capabilities.maxPhotos}. Vous pourrez quitter la page pendant le traitement.</small></div>
+    <div className="room-toolbar"><button className="button primary" disabled={photos.length < capabilities.minPhotos || pending.length > 0 || uploading || capturing || scanning || starting || !capabilities.workerAvailable} onClick={() => void startReconstruction()}>{starting ? 'Démarrage…' : 'Construire la vue 3D'}</button><small>Au moins {capabilities.minPhotos} photos · jusqu’à {capabilities.maxPhotos}. Mettez le scan en pause avant de lancer la reconstruction.</small></div>
   </div>
 }
