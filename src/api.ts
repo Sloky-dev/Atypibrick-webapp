@@ -29,7 +29,7 @@ async function refreshSession(): Promise<boolean> {
   return refreshPromise
 }
 
-async function request<T>(path: string, init?: RequestInit, retry = true): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit, retry = true): Promise<T> {
   const token = localStorage.getItem(ACCESS_TOKEN_KEY)
   const response = await fetch(`${API_URL}${path}`, { ...init, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init?.headers } })
   if (!response.ok) {
@@ -41,7 +41,9 @@ async function request<T>(path: string, init?: RequestInit, retry = true): Promi
     }
     throw new Error(body?.detail || `Erreur API (${response.status})`)
   }
-  return response.status === 204 ? (undefined as T) : response.json()
+  if (response.status === 204) return undefined as T
+  if (!response.headers.get('content-type')?.includes('application/json')) return await response.blob() as T
+  return response.json()
 }
 
 export const collectionApi = {
