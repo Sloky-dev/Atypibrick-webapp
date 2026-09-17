@@ -7,7 +7,29 @@ const pointCloud = () => {
   return `ply\nformat ascii 1.0\nelement vertex ${points.length}\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nend_header\n${points.join('\n')}`
 }
 
-async function setup(page: Page, options: { failUpload?: boolean; workerAvailable?: boolean } = {}) {
+const texturedModel = () => {
+  const positions = Buffer.from(new Float32Array([-3, -3, 0, 3, -3, 0, 3, 3, 0, -3, 3, 0]).buffer)
+  const indices = Buffer.from(new Uint16Array([0, 1, 2, 0, 2, 3]).buffer)
+  const uv = Buffer.from(new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]).buffer)
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAKklEQVR4nGN0S2liwAaKdW9gFWdiIBEwjWogArDgCu/eyxpDxQ9Mw0ADAJIrBcZUoQWVAAAAAElFTkSuQmCC', 'base64')
+  const binary = Buffer.concat([positions, indices, uv, png])
+  const gltf = { asset: { version: '2.0' }, scene: 0, scenes: [{ nodes: [0] }], nodes: [{ mesh: 0 }],
+    buffers: [{ byteLength: binary.length }],
+    bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: positions.length }, { buffer: 0, byteOffset: positions.length, byteLength: indices.length }, { buffer: 0, byteOffset: positions.length + indices.length, byteLength: uv.length }, { buffer: 0, byteOffset: positions.length + indices.length + uv.length, byteLength: png.length }],
+    accessors: [{ bufferView: 0, componentType: 5126, count: 4, type: 'VEC3', min: [-3, -3, 0], max: [3, 3, 0] }, { bufferView: 1, componentType: 5123, count: 6, type: 'SCALAR' }, { bufferView: 2, componentType: 5126, count: 4, type: 'VEC2' }],
+    meshes: [{ primitives: [{ attributes: { POSITION: 0, TEXCOORD_0: 2 }, indices: 1, material: 0 }] }],
+    materials: [{ doubleSided: true, pbrMetallicRoughness: { baseColorTexture: { index: 0 }, metallicFactor: 0, roughnessFactor: 1 } }],
+    textures: [{ source: 0 }], images: [{ bufferView: 3, mimeType: 'image/png' }] }
+  const json = Buffer.from(JSON.stringify(gltf))
+  const paddedJson = Buffer.concat([json, Buffer.alloc((-json.length >>> 0) % 4, 32)])
+  const paddedBinary = Buffer.concat([binary, Buffer.alloc((-binary.length >>> 0) % 4)])
+  const header = Buffer.alloc(20)
+  header.write('glTF'); header.writeUInt32LE(2, 4); header.writeUInt32LE(28 + paddedJson.length + paddedBinary.length, 8); header.writeUInt32LE(paddedJson.length, 12); header.writeUInt32LE(0x4e4f534a, 16)
+  const binHeader = Buffer.alloc(8); binHeader.writeUInt32LE(paddedBinary.length, 0); binHeader.writeUInt32LE(0x004e4942, 4)
+  return Buffer.concat([header, paddedJson, binHeader, paddedBinary])
+}
+
+async function setup(page: Page, options: { failUpload?: boolean; workerAvailable?: boolean; legacy?: boolean } = {}) {
   let room: Record<string, unknown> | null = null
   const photos: { id: string; captureId: string }[] = []
   let markers: { id: string; label: string; x: number; y: number; z: number; sets: typeof set[] }[] = []
@@ -25,6 +47,10 @@ async function setup(page: Page, options: { failUpload?: boolean; workerAvailabl
     if (path === '/rooms' && method === 'GET') return json(room ? [room] : [])
     if (path === '/rooms' && method === 'POST') {
       room = { id: 'room-1', name: request.postDataJSON().name, status: 'capture', stage: 'Capture', error: null, photoCount: 0, pointCount: 0, registeredImages: 0, createdAt: new Date().toISOString() }
+      if (options.legacy) {
+        for (let i = 0; i < 21; i++) photos.push({ id: `photo-${i}`, captureId: `capture-${i}` })
+        room = { ...room, status: 'ready', modelFormat: 'points', photoCount: 21, registeredImages: 11, pointCount: 1990 }
+      }
       return json(room, 201)
     }
     if (path.startsWith('/rooms/locations/')) return json(markers.filter((m) => m.sets.length).map((m) => ({ roomId: 'room-1', roomName: 'Bureau', markerId: m.id, label: m.label })))
@@ -42,10 +68,11 @@ async function setup(page: Page, options: { failUpload?: boolean; workerAvailabl
     }
     if (path.startsWith('/rooms/room-1/photos/') && method === 'GET') return route.fulfill({ contentType: 'image/jpeg', body: lastPhoto })
     if (path === '/rooms/room-1/reconstruct') {
-      room = { ...room!, status: 'ready', stage: 'Vue 3D disponible', registeredImages: photos.length, pointCount: 3721 }
+      room = { ...room!, status: 'ready', modelFormat: 'mesh', stage: 'Vue 3D disponible', registeredImages: photos.length, pointCount: 3721 }
       return json({ ...room, status: 'queued', stage: 'En attente de traitement' })
     }
-    if (path === '/rooms/room-1/model') return route.fulfill({ contentType: 'application/octet-stream', body: pointCloud() })
+    if (path === '/rooms/room-1/reopen') { room = { ...room, status: 'capture' }; return json(room) }
+    if (path === '/rooms/room-1/model') return room?.modelFormat === 'points' ? route.fulfill({ contentType: 'application/octet-stream', body: pointCloud() }) : route.fulfill({ contentType: 'model/gltf-binary', body: texturedModel() })
     if (path === '/rooms/room-1/markers' && method === 'GET') return json(markers)
     if (path === '/rooms/room-1/markers' && method === 'POST') {
       const marker = { ...request.postDataJSON(), id: 'marker-1', sets: [] }
@@ -74,6 +101,7 @@ async function navigate(page: Page, name: string) {
 test('capture, reconstruction display, marker, set association and locate', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
+  page.on('console', (entry) => { if (entry.type() === 'error' && entry.text().includes('THREE.')) errors.push(entry.text()) })
   await setup(page)
   await page.getByRole('button', { name: 'Ouvrir la caméra' }).click()
   await page.getByRole('button', { name: 'Prendre une photo' }).click()
@@ -81,7 +109,7 @@ test('capture, reconstruction display, marker, set association and locate', asyn
   await page.getByRole('button', { name: 'Prendre une photo' }).click()
   await expect(page.getByText('Vérifier les 2 photos envoyées')).toBeVisible()
   await page.getByRole('button', { name: 'Construire la vue 3D' }).click()
-  await expect(page.getByText('Première reconstruction en points colorés', { exact: false })).toBeVisible({ timeout: 15000 })
+  await expect(page.getByText('Surfaces texturées', { exact: false })).toBeVisible({ timeout: 15000 })
   await expect(page.getByRole('button', { name: 'Vue d’ensemble' })).toBeVisible()
   await page.getByRole('button', { name: 'Ajouter un emplacement' }).click()
   await page.getByLabel('Nom de l’emplacement').fill('Étagère du haut')
@@ -132,4 +160,40 @@ test('room capture opens without downloading a deferred room or 3D module', asyn
   await expect(page.getByRole('button', { name: 'Ouvrir la caméra' })).toBeVisible()
   await expect(page.getByText('Ouverture de Brick Room…')).toHaveCount(0)
   expect(deferredRequests).toEqual([])
+})
+
+test('continuous camera scan captures images and stops when paused', async ({ page }) => {
+  await setup(page)
+  let uploads = 0
+  page.on('request', (request) => { if (request.method() === 'PUT' && request.url().includes('/photos/')) uploads++ })
+  await page.getByRole('button', { name: 'Ouvrir la caméra' }).click()
+  await page.getByRole('button', { name: 'Démarrer le scan continu' }).click()
+  await expect.poll(() => uploads, { timeout: 12000 }).toBeGreaterThanOrEqual(2)
+  await page.getByRole('button', { name: 'Mettre le scan en pause' }).click()
+  await expect(page.getByRole('button', { name: 'Démarrer le scan continu' })).toBeVisible()
+  const pausedCount = uploads
+  await page.waitForTimeout(2000)
+  expect(uploads).toBe(pausedCount)
+  await page.getByRole('button', { name: 'Arrêter la caméra' }).click()
+  await expect(page.getByRole('button', { name: 'Ouvrir la caméra' })).toBeVisible()
+})
+
+test('continuous scan pauses after upload failure and retains the captured image', async ({ page }) => {
+  await setup(page, { failUpload: true })
+  await page.getByRole('button', { name: 'Ouvrir la caméra' }).click()
+  await page.getByRole('button', { name: 'Démarrer le scan continu' }).click()
+  await expect(page.getByRole('button', { name: 'Reprendre l’envoi' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Démarrer le scan continu' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Mettre le scan en pause' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Reprendre l’envoi' }).click()
+  await expect(page.getByText('Vérifier les 1 photos envoyées')).toBeVisible()
+})
+
+test('legacy sparse reconstruction can be reopened without losing photos', async ({ page }) => {
+  await setup(page, { legacy: true })
+  await expect(page.getByText('Cette ancienne reconstruction ne contient que des points de repérage.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Ajouter un emplacement' })).toBeDisabled()
+  await page.getByRole('button', { name: 'Compléter et reconstruire' }).click()
+  await expect(page.getByRole('button', { name: 'Ouvrir la caméra' })).toBeVisible()
+  await expect(page.getByText('Vérifier les 21 photos envoyées')).toBeVisible()
 })

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { PLYLoader } from 'three/addons/loaders/PLYLoader.js'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { brickRoomApi, type Position, type RoomMarker } from '../brickRoomApi'
 
 type Props = { roomId: string; markers: RoomMarker[]; selectedId: string | null; placing: boolean; onPosition: (position: Position) => void; onSelect: (id: string) => void }
@@ -36,7 +37,10 @@ export function RoomViewer(props: Props) {
           if (object instanceof THREE.Mesh || object instanceof THREE.Points) {
             object.geometry.dispose()
             const materials = Array.isArray(object.material) ? object.material : [object.material]
-            materials.forEach((material) => material.dispose())
+            materials.forEach((material) => {
+              for (const value of Object.values(material)) if (value instanceof THREE.Texture) { value.dispose(); if (typeof ImageBitmap !== 'undefined' && value.image instanceof ImageBitmap) value.image.close() }
+              material.dispose()
+            })
           }
         })
         renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove()
@@ -52,14 +56,43 @@ export function RoomViewer(props: Props) {
       const controls = new OrbitControls(camera, renderer.domElement)
       controls.enableDamping = true; controls.minDistance = .15; controls.maxDistance = 100
       controlsResources.push(() => controls.dispose())
-      const geometry = new PLYLoader().parse(data)
-      geometry.computeBoundingSphere()
-      const cloud = new THREE.Points(geometry, new THREE.PointsMaterial({ size: .035, vertexColors: true, sizeAttenuation: true }))
-      scene.add(cloud)
+      const isMesh = new DataView(data).getUint32(0, true) === 0x46546c67
+      let model: THREE.Object3D
+      let pointGeometry: THREE.BufferGeometry | null = null
+      if (isMesh) {
+        const gltf = await new GLTFLoader().parseAsync(data, '')
+        const surface = gltf.scene
+        surface.traverse((object) => {
+          if (object instanceof THREE.Mesh) {
+            const materials = Array.isArray(object.material) ? object.material : [object.material]
+            materials.forEach((material) => { material.side = THREE.DoubleSide })
+          }
+        })
+        const bounds = new THREE.Box3().setFromObject(surface)
+        const center = bounds.getCenter(new THREE.Vector3())
+        const size = bounds.getSize(new THREE.Vector3())
+        const scale = 10 / Math.max(size.x, size.y, size.z, .001)
+        // Stable normalized world coordinates, shared by rendering and saved markers.
+        const normalized = new THREE.Group()
+        normalized.add(surface)
+        normalized.scale.setScalar(scale)
+        normalized.position.copy(center).multiplyScalar(-scale)
+        const oriented = new THREE.Group()
+        oriented.rotation.x = Math.PI
+        oriented.add(normalized)
+        model = oriented
+        scene.add(new THREE.HemisphereLight(0xffffff, 0x777777, 2))
+      } else {
+        pointGeometry = new PLYLoader().parse(data)
+        model = new THREE.Points(pointGeometry, new THREE.PointsMaterial({ size: .035, vertexColors: true, sizeAttenuation: true }))
+      }
+      scene.add(model)
+      if (disposed) { cleanup(); return }
+      model.updateMatrixWorld(true)
+      const sphere = new THREE.Box3().setFromObject(model).getBoundingSphere(new THREE.Sphere())
       const markerGroup = new THREE.Group()
       scene.add(markerGroup)
       const fit = () => {
-        const sphere = geometry.boundingSphere!
         const distance = Math.max(2, sphere.radius * 2.8)
         controls.target.copy(sphere.center)
         camera.position.copy(sphere.center).add(new THREE.Vector3(distance * .3, distance * .2, distance))
@@ -83,9 +116,9 @@ export function RoomViewer(props: Props) {
         const marker = ray.intersectObjects(markerGroup.children)[0]
         if (marker && !latest.current.placing) { latest.current.onSelect(marker.object.userData.id as string); return }
         if (!latest.current.placing) return
-        const hit = ray.intersectObject(cloud)[0]
-        if (hit?.index !== undefined) {
-          const position = new THREE.Vector3().fromBufferAttribute(geometry.getAttribute('position'), hit.index)
+        const hit = ray.intersectObject(model, true)[0]
+        if (hit) {
+          const position = pointGeometry && hit.index !== undefined ? new THREE.Vector3().fromBufferAttribute(pointGeometry.getAttribute('position'), hit.index) : hit.point
           latest.current.onPosition({ x: position.x, y: position.y, z: position.z })
         }
       }
