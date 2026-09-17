@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Box, CalendarDays, ChevronRight, ClipboardCheck, ExternalLink, LayoutGrid, Library, LogOut, MapPin, Menu, PackagePlus, Palette, Pencil, Puzzle, Search, SlidersHorizontal, Tags, Trash2, UserRound, X } from 'lucide-react'
 import { authApi, clearSession, collectionApi } from './api'
 import { AccountModal } from './components/AccountModal'
@@ -10,11 +10,11 @@ import { TrashModal } from './components/TrashModal'
 import { CollectionFiltersPanel, emptyCollectionFilters } from './components/CollectionFiltersPanel'
 import { MissingPartsModal } from './components/MissingPartsModal'
 import { PickABrickModal } from './components/PickABrickModal'
+import { BrickRooms } from './components/BrickRooms'
 import type { CollectionFilters, CollectionSummary, LegoSet, LegoSetPayload, User } from './types'
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 const PAGE_SIZE = 9
-const BrickRooms = lazy(() => import('./components/BrickRooms').then((module) => ({ default: module.BrickRooms })))
 
 function needsImageRepair(item: LegoSet): boolean {
   const isCada = /^C\d{4,6}W?$/i.test(item.setNumber)
@@ -145,7 +145,7 @@ function App() {
     <div className="page-shell">
     <header className="mobile-header"><a className="brand" href="#"><img src="/atypik-mark.svg" alt="" width="38" height="38" /><span><strong>ATYPIBRICK</strong><small>UN UNIVERS ATYPIK</small></span></a><button onClick={() => setMenuOpen(true)} aria-label="Ouvrir le menu"><Menu /></button></header>
     <main>
-      {page === 'rooms' ? <Suspense fallback={<div className="empty"><div className="loader" /><p>Ouverture de Brick Room…</p></div>}><BrickRooms locateSet={locateSet} /></Suspense> : <>
+      {page === 'rooms' ? <BrickRooms locateSet={locateSet} /> : <>
       <section className="hero dashboard-hero">
         <div className="hero-dashboard-copy"><span className="eyebrow">VUE D’ENSEMBLE</span><h1>Ma collection<br /><em>BRICK.</em></h1><p>Retrouvez vos sets, suivez votre investissement et contrôlez votre collection depuis un seul espace.</p><div className="hero-actions"><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button><button className="button ghost" onClick={() => setInventoryOpen(true)}><ClipboardCheck /> Faire l’inventaire</button></div><div className="hero-summary"><span><strong>{summary.itemCount}</strong><small>EXEMPLAIRE{summary.itemCount > 1 ? 'S' : ''}</small></span><span><strong>{summary.totalParts.toLocaleString('fr-FR')}</strong><small>BRIQUES</small></span><span><strong>{euro.format(Number(summary.totalInvested))}</strong><small>INVESTIS</small></span></div></div>
         <div className="latest-set-panel">{latestSet ? <><div className="latest-set-head"><span>DERNIER AJOUT</span><button onClick={() => { setEditing(latestSet); setFormOpen(true) }}>Modifier <Pencil /></button></div><div className="latest-set-image">{latestSet.imageUrl ? <img src={latestSet.imageUrl} alt={`Boîte du set ${latestSet.name}`} /> : <Box />}</div><div className="latest-set-info"><small>{latestSet.brand} · {latestSet.theme || 'Sans thème'} · #{latestSet.setNumber}</small><strong>{latestSet.name}</strong><span>{Number(latestSet.totalInvested) > 0 ? euro.format(Number(latestSet.totalInvested)) : 'Reçu en cadeau'}</span></div></> : <><div className="latest-set-empty"><Box /><span>VOTRE PREMIER SET</span><strong>La collection commence ici.</strong><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button></div></>}</div>

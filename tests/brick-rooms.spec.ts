@@ -65,6 +65,7 @@ async function setup(page: Page, options: { failUpload?: boolean; workerAvailabl
 }
 
 async function navigate(page: Page, name: string) {
+  await expect(page.getByRole('navigation')).toBeAttached()
   const menu = page.getByRole('button', { name: 'Ouvrir le menu' })
   if (await menu.isVisible()) await menu.click()
   await page.getByRole('navigation').getByText(name, { exact: true }).click()
@@ -119,4 +120,16 @@ test('camera denial and unavailable worker explain how to continue', async ({ pa
   await expect(page.getByRole('alert')).toContainText('Autorisez la caméra')
   await expect(page.getByText('Le traitement 3D est actuellement indisponible.', { exact: false })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Construire la vue 3D' })).toBeDisabled()
+})
+
+test('room capture opens without downloading a deferred room or 3D module', async ({ page }) => {
+  const deferredRequests: string[] = []
+  await page.route(/\/assets\/(BrickRooms|RoomViewer)-[^/]+\.js/, async (route) => {
+    deferredRequests.push(route.request().url())
+    await route.abort('internetdisconnected')
+  })
+  await setup(page)
+  await expect(page.getByRole('button', { name: 'Ouvrir la caméra' })).toBeVisible()
+  await expect(page.getByText('Ouverture de Brick Room…')).toHaveCount(0)
+  expect(deferredRequests).toEqual([])
 })
