@@ -29,7 +29,7 @@ const texturedModel = () => {
   return Buffer.concat([header, paddedJson, binHeader, paddedBinary])
 }
 
-async function setup(page: Page, options: { failUpload?: boolean; workerAvailable?: boolean; legacy?: boolean } = {}) {
+async function setup(page: Page, options: { failUpload?: boolean; workerAvailable?: boolean; legacy?: boolean; readyMesh?: boolean } = {}) {
   let room: Record<string, unknown> | null = null
   const photos: { id: string; captureId: string }[] = []
   let markers: { id: string; label: string; x: number; y: number; z: number; sets: typeof set[] }[] = []
@@ -47,9 +47,9 @@ async function setup(page: Page, options: { failUpload?: boolean; workerAvailabl
     if (path === '/rooms' && method === 'GET') return json(room ? [room] : [])
     if (path === '/rooms' && method === 'POST') {
       room = { id: 'room-1', name: request.postDataJSON().name, status: 'capture', stage: 'Capture', error: null, photoCount: 0, pointCount: 0, registeredImages: 0, createdAt: new Date().toISOString() }
-      if (options.legacy) {
+      if (options.legacy || options.readyMesh) {
         for (let i = 0; i < 21; i++) photos.push({ id: `photo-${i}`, captureId: `capture-${i}` })
-        room = { ...room, status: 'ready', modelFormat: 'points', photoCount: 21, registeredImages: 11, pointCount: 1990 }
+        room = { ...room, status: 'ready', modelFormat: options.readyMesh ? 'mesh' : 'points', photoCount: 21, registeredImages: 11, pointCount: 1990 }
       }
       return json(room, 201)
     }
@@ -196,4 +196,12 @@ test('legacy sparse reconstruction can be reopened without losing photos', async
   await page.getByRole('button', { name: 'Compléter et reconstruire' }).click()
   await expect(page.getByRole('button', { name: 'Ouvrir la caméra' })).toBeVisible()
   await expect(page.getByText('Vérifier les 21 photos envoyées')).toBeVisible()
+})
+
+
+test('textured reconstruction can be reopened with existing photos', async ({ page }) => {
+  await setup(page, { readyMesh: true })
+  await page.getByRole('button', { name: 'Compléter et reconstruire' }).click()
+  await expect(page.getByText('Vérifier les 21 photos envoyées')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Construire la vue 3D' })).toBeEnabled()
 })
