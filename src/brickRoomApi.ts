@@ -1,12 +1,12 @@
 import { request } from './api'
 
 export type Room = {
-  modelFormat?: 'points' | 'mesh'
+  captureKind: 'legacy' | 'panorama'
   id: string; name: string; status: 'capture' | 'queued' | 'processing' | 'ready' | 'failed'
-  stage: string; error: string | null; photoCount: number; pointCount: number; registeredImages: number; createdAt: string
+  stage: string; error: string | null; photoCount: number; createdAt: string
 }
 export type Position = { x: number; y: number; z: number }
-export type RoomMarker = Position & { id: string; label: string; sets: { id: string; name: string; setNumber: string }[] }
+export type RoomMarker = Position & { positioned: boolean; id: string; label: string; sets: { id: string; name: string; setNumber: string }[] }
 export type RoomPhoto = { id: string; captureId: string }
 export type RoomLocation = { roomId: string; roomName: string; markerId: string; label: string }
 export type RoomCapabilities = { workerAvailable: boolean; minPhotos: number; maxPhotos: number }
@@ -22,9 +22,11 @@ export const brickRoomApi = {
   photo: (id: string, photo: string) => request<Blob>(`${path(id)}/photos/${photo}`),
   upload: (id: string, capture: string, blob: Blob) => request<RoomPhoto>(`${path(id)}/photos/${capture}`, { method: 'PUT', body: blob, headers: { 'Content-Type': 'image/jpeg' } }),
   deletePhoto: (id: string, photo: string) => request<void>(`${path(id)}/photos/${photo}`, { method: 'DELETE' }),
-  reconstruct: (id: string) => request<Room>(`${path(id)}/reconstruct`, { method: 'POST' }),
-  reopen: (id: string) => request<Room>(`${path(id)}/reopen`, { method: 'POST' }),
-  model: (id: string) => request<Blob>(`${path(id)}/model`),
+  assemble: (id: string) => request<Room>(`${path(id)}/assemble`, { method: 'POST' }),
+  reset: (id: string) => request<Room>(`${path(id)}/reset`, { method: 'POST' }),
+  panorama: (id: string) => request<Blob>(`${path(id)}/panorama`),
+  uploadPanorama: (id: string, blob: Blob) => request<Room>(`${path(id)}/panorama`, { method: 'PUT', body: blob, headers: { 'Content-Type': blob.type } }),
+  reposition: (id: string, marker: string, label: string, position: Position) => request<RoomMarker>(`${path(id)}/markers/${marker}`, { method: 'PATCH', body: JSON.stringify({ label, ...position }) }),
   markers: (id: string) => request<RoomMarker[]>(`${path(id)}/markers`),
   createMarker: (id: string, label: string, position: Position) => request<RoomMarker>(`${path(id)}/markers`, { method: 'POST', body: JSON.stringify({ label, ...position }) }),
   deleteMarker: (id: string, marker: string) => request<void>(`${path(id)}/markers/${marker}`, { method: 'DELETE' }),

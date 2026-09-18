@@ -38,6 +38,8 @@ export function RoomCapture({ room, capabilities, onChange }: { room: Room; capa
   const [pending, setPending] = useState<PendingCapture[]>([])
   const [photos, setPhotos] = useState<RoomPhoto[]>([])
   const [reviewPhotos, setReviewPhotos] = useState(false)
+  const [reference, setReference] = useState('')
+  const [importing, setImporting] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
@@ -113,7 +115,7 @@ export function RoomCapture({ room, capabilities, onChange }: { room: Room; capa
     if (!source?.videoWidth || source.readyState < 2 || captureLock.current) return
     if (automatic && !scanActive.current) return
     if (photos.length + pending.length >= capabilities.maxPhotos) {
-      pauseScan(); setNotice('Limite de capture atteinte. Vous pouvez lancer la reconstruction.'); return
+      pauseScan(); setNotice('Limite de capture atteinte. Vous pouvez assembler le panorama.'); return
     }
     captureLock.current = true
     setCapturing(true)
@@ -125,6 +127,7 @@ export function RoomCapture({ room, capabilities, onChange }: { room: Room; capa
       const context = canvas.getContext('2d')
       if (!context) throw new Error('La capture photo n’est pas disponible sur ce navigateur.')
       context.drawImage(source, 0, 0, canvas.width, canvas.height)
+      setReference(canvas.toDataURL('image/jpeg', .6))
       const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
       let brightness = 0
       for (let i = 0; i < pixels.length; i += 64) brightness += (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3
@@ -146,7 +149,7 @@ export function RoomCapture({ room, capabilities, onChange }: { room: Room; capa
             difference += Math.abs(signature[i] - previous[i]) + Math.abs(signature[i + 1] - previous[i + 1]) + Math.abs(signature[i + 2] - previous[i + 2])
           }
           if (difference / (64 * 48 * 3) < 3) {
-            setNotice('Déplacez-vous lentement : cette vue ressemble à la précédente.'); return
+            setNotice('Tournez légèrement : cette vue ressemble à la précédente.'); return
           }
         }
       }
@@ -156,7 +159,7 @@ export function RoomCapture({ room, capabilities, onChange }: { room: Room; capa
       if (signature) lastScanFrame.current = signature
       if (!active.current) return
       setPending(await captureStore.list(room.id))
-      setNotice(automatic ? 'Image conservée. Continuez lentement autour du meuble, sans changer de zoom.' : 'Photo conservée. Faites un petit pas de côté en gardant le meuble dans le cadre.')
+      setNotice(automatic ? 'Image conservée. Tournez lentement sur place, sans changer de zoom.' : 'Photo conservée. Tournez légèrement sur place en conservant les mêmes détails dans le cadre.')
       void uploadPending()
     } catch (e) { if (active.current) { pauseScan(); setError(message(e)) } }
     finally { captureLock.current = false; if (active.current) setCapturing(false) }
@@ -167,7 +170,7 @@ export function RoomCapture({ room, capabilities, onChange }: { room: Room; capa
   function startScan() {
     if (scanActive.current || !cameraOn) return
     scanActive.current = true; setScanning(true); setError('')
-    setNotice('Scan en cours. Déplacez-vous lentement autour du meuble en gardant les mêmes détails visibles.')
+    setNotice('Capture en cours. Tournez sur place à hauteur constante, en gardant les mêmes détails visibles.')
     const next = async () => {
       if (!scanActive.current || !active.current) return
       await captureFrame.current(true)
@@ -181,9 +184,9 @@ export function RoomCapture({ room, capabilities, onChange }: { room: Room; capa
     catch (e) { setError(message(e)) }
   }
 
-  async function startReconstruction() {
+  async function startAssembly() {
     setStarting(true); setError('')
-    try { stopCamera(); onChange(await brickRoomApi.reconstruct(room.id)) }
+    try { stopCamera(); onChange(await brickRoomApi.assemble(room.id)) }
     catch (e) { setError(message(e)) }
     finally { setStarting(false) }
   }
@@ -197,15 +200,16 @@ export function RoomCapture({ room, capabilities, onChange }: { room: Room; capa
   }
 
   return <div className="room-capture">
-    <div className="room-guide"><strong>Scannez en vous déplaçant, comme pour filmer</strong><p>Ouvrez la caméra, puis démarrez le scan continu. Atypibrick conserve automatiquement des images pendant votre déplacement. Visez 20 à 40 vues nettes en gardant environ deux tiers de l’image en commun entre deux vues.</p><p>Avancez lentement, gardez le même zoom et changez légèrement de hauteur. Éclairez la zone et évitez les reflets. Commencez par une étagère : tourner le téléphone sur place ne suffit pas à capturer le relief.</p></div>
-    <div className="room-camera"><video ref={video} playsInline muted aria-label="Aperçu de la caméra" />{!cameraOn && <div className="room-camera-cover"><Camera size={36} /><p>Capturez votre espace directement ici.</p><button className="button primary" disabled={cameraStarting} onClick={() => void startCamera()}>{cameraStarting ? 'Ouverture…' : 'Ouvrir la caméra'}</button></div>}{cameraOn && <div className="room-camera-guide" aria-hidden="true" />}</div>
-    <div className="room-toolbar"><span aria-live="polite"><strong>{photos.length}</strong> photos envoyées{pending.length > 0 && ` · ${pending.length} en attente`}{scanning && ' · Scan en cours'}</span>{cameraOn && <><button className="button primary" disabled={!scanning && (capturing || photos.length + pending.length >= capabilities.maxPhotos || starting)} onClick={scanning ? pauseScan : startScan}>{scanning ? <Pause size={18} /> : <ScanLine size={18} />}{scanning ? 'Mettre le scan en pause' : 'Démarrer le scan continu'}</button><button className="button ghost" disabled={scanning || capturing || photos.length + pending.length >= capabilities.maxPhotos || starting} onClick={() => void capture()}><Camera size={18} />{capturing && !scanning ? 'Capture…' : 'Prendre une photo'}</button><button className="button ghost" onClick={stopCamera}><VideoOff size={18} /> Arrêter la caméra</button></>}</div>
+    <div className="room-guide"><strong>Tournez sur place pour créer votre panorama</strong><p>Gardez le téléphone vertical, à la même hauteur et au même endroit. Tournez lentement dans un seul sens, sans marcher ni changer de zoom. Gardez environ deux tiers de la vue précédente en commun.</p><p>La dernière photo apparaît en transparence pour vous aider à aligner la suivante. Pour un tour complet, revenez progressivement à votre point de départ. Les zones non photographiées resteront vides, notamment le sol et le plafond.</p></div>
+    <div className="room-notice"><label>Importer une photo 360° déjà assemblée<input type="file" accept="image/jpeg,image/png,image/webp" disabled={importing || uploading || scanning || starting || pending.length > 0} onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; stopCamera(); setImporting(true); setError(''); void brickRoomApi.uploadPanorama(room.id, file).then(onChange).catch((e) => setError(message(e))).finally(() => setImporting(false)); event.target.value = '' }} /></label><p>Image équirectangulaire 2:1, jusqu’à 30 Mo. Une photo ordinaire ne suffit pas.</p>{importing && <p role="status">Envoi du panorama…</p>}</div>
+    <div className="room-camera">{cameraOn && reference && <img className="panorama-reference" src={reference} alt="Dernière vue : alignez les détails communs" />}<video ref={video} playsInline muted aria-label="Aperçu de la caméra" />{!cameraOn && <div className="room-camera-cover"><Camera size={36} /><p>Capturez votre espace directement ici.</p><button className="button primary" disabled={cameraStarting} onClick={() => void startCamera()}>{cameraStarting ? 'Ouverture…' : 'Ouvrir la caméra'}</button></div>}{cameraOn && <div className="room-camera-guide" aria-hidden="true" />}</div>
+    <div className="room-toolbar"><span aria-live="polite"><strong>{photos.length}</strong> photos envoyées{pending.length > 0 && ` · ${pending.length} en attente`}{scanning && ' · Scan en cours'}</span>{cameraOn && <><button className="button primary" disabled={!scanning && (capturing || photos.length + pending.length >= capabilities.maxPhotos || starting)} onClick={scanning ? pauseScan : startScan}>{scanning ? <Pause size={18} /> : <ScanLine size={18} />}{scanning ? 'Mettre la capture en pause' : 'Démarrer la capture continue'}</button><button className="button ghost" disabled={scanning || capturing || photos.length + pending.length >= capabilities.maxPhotos || starting} onClick={() => void capture()}><Camera size={18} />{capturing && !scanning ? 'Capture…' : 'Prendre une photo'}</button><button className="button ghost" onClick={stopCamera}><VideoOff size={18} /> Arrêter la caméra</button></>}</div>
     {cameraOn && <p className="room-muted">Le scan conserve des images extraites de la caméra. Aucun fichier vidéo ni son n’est enregistré.</p>}
     {notice && <p className="room-muted" role="status">{notice}</p>}
     {error && <p className="room-error" role="alert">{error}</p>}
     {pending.length > 0 && <div className="room-toolbar"><button className="button ghost" disabled={uploading} onClick={() => void uploadPending()}><CloudUpload size={18} />{uploading ? 'Envoi en cours…' : 'Reprendre l’envoi'}</button><button className="button ghost" disabled={uploading || capturing || scanning} onClick={() => void discardPending()}>Supprimer les photos en attente</button><small>Les photos en attente restent sur ce téléphone, même si vous fermez cette page.</small></div>}
     {photos.length > 0 && <details className="room-photo-review" onToggle={(e) => setReviewPhotos(e.currentTarget.open)}><summary>Vérifier les {photos.length} photos envoyées</summary>{reviewPhotos && <div className="room-photos">{photos.map((photo) => <PhotoTile key={photo.id} roomId={room.id} photo={photo} onRemove={() => void removePhoto(photo)} />)}</div>}</details>}
-    {!capabilities.workerAvailable && <p className="room-notice">Le traitement 3D est actuellement indisponible. Vous pouvez capturer vos photos et revenir lancer la reconstruction plus tard.</p>}
-    <div className="room-toolbar"><button className="button primary" disabled={photos.length < capabilities.minPhotos || pending.length > 0 || uploading || capturing || scanning || starting || !capabilities.workerAvailable} onClick={() => void startReconstruction()}>{starting ? 'Démarrage…' : 'Construire la vue 3D'}</button><small>Au moins {capabilities.minPhotos} photos · jusqu’à {capabilities.maxPhotos}. Mettez le scan en pause avant de lancer la reconstruction.</small></div>
+    {!capabilities.workerAvailable && <p className="room-notice">L’assemblage est actuellement indisponible. L’import d’un panorama 360° reste possible.</p>}
+    <div className="room-toolbar"><button className="button primary" disabled={photos.length < capabilities.minPhotos || pending.length > 0 || uploading || capturing || scanning || starting || !capabilities.workerAvailable} onClick={() => void startAssembly()}>{starting ? 'Démarrage…' : 'Assembler le panorama'}</button><small>Au moins {capabilities.minPhotos} photos · jusqu’à {capabilities.maxPhotos}. Mettez la capture en pause avant d’assembler le panorama.</small></div>
   </div>
 }
