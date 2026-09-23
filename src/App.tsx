@@ -146,7 +146,8 @@ function App() {
         <div className="latest-set-panel">{latestSet ? <><div className="latest-set-head"><span>DERNIER AJOUT</span><button onClick={() => { setEditing(latestSet); setFormOpen(true) }}>Modifier <Pencil /></button></div><div className="latest-set-image">{latestSet.imageUrl ? <img src={latestSet.imageUrl} alt={`Boîte du set ${latestSet.name}`} /> : <Box />}</div><div className="latest-set-info"><small>{latestSet.brand} · {latestSet.theme || 'Sans thème'} · #{latestSet.setNumber}</small><strong>{latestSet.name}</strong><span>{Number(latestSet.totalInvested) > 0 ? euro.format(Number(latestSet.totalInvested)) : 'Reçu en cadeau'}</span></div></> : <><div className="latest-set-empty"><Box /><span>VOTRE PREMIER SET</span><strong>La collection commence ici.</strong><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button></div></>}</div>
       </section>
       <section className="stats breakdown-stats" id="stats">
-        <StatisticsBreakdown title="RÉPARTITION PAR THÈME" subtitle="Univers les plus présents" icon={<Palette />} items={summary.themes} />
+        <StatisticsBreakdown title="RÉPARTITION PAR MARQUE" subtitle="Marques de votre collection" icon={<Box />} items={summary.brands} />
+        <StatisticsBreakdown title="RÉPARTITION PAR THÈME" subtitle="Univers les plus présents" icon={<Palette />} items={summary.themes.map((item) => ({ ...item, label: item.brands?.length ? `${item.label} (${item.brands.join(', ')})` : item.label }))} />
         <StatisticsBreakdown title="CONDITIONS D’ACHAT" subtitle="Sets achetés neufs ou d’occasion" icon={<Tags />} items={summary.conditions} />
         <StatisticsBreakdown title="ANNÉES D’ACHAT" subtitle="Chronologie de la collection" icon={<CalendarDays />} items={summary.purchaseYears} />
       </section>
