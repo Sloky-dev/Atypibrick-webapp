@@ -2,7 +2,7 @@ import { RotateCcw, X } from 'lucide-react'
 import type { CollectionFilters, CollectionSummary } from '../types'
 
 export const emptyCollectionFilters: CollectionFilters = {
-  brand: '', theme: '', condition: '', gift: '', purchaseDateFrom: '', purchaseDateTo: '',
+  incomplete: '', brand: '', theme: '', condition: '', gift: '', purchaseDateFrom: '', purchaseDateTo: '',
   priceMin: '', priceMax: '', partsMin: '', partsMax: '', sort: 'newest',
 }
 
@@ -17,6 +17,7 @@ export function CollectionFiltersPanel({ filters, summary, onChange, onClose }: 
       <label>Marque<select value={filters.brand} onChange={(event) => update('brand', event.target.value)}><option value="">Toutes les marques</option>{summary.brands.map((item) => <option key={item.label}>{item.label}</option>)}</select></label>
       <label>Thème<select value={filters.theme} onChange={(event) => update('theme', event.target.value)}><option value="">Tous les thèmes</option>{summary.themes.map((item) => <option key={item.label}>{item.label}</option>)}</select></label>
       <label>Condition d’achat<select value={filters.condition} onChange={(event) => update('condition', event.target.value)}><option value="">Toutes les conditions</option>{summary.conditions.map((item) => <option key={item.label}>{item.label}</option>)}</select></label>
+      <label>État du set<select value={filters.incomplete} onChange={(event) => update('incomplete', event.target.value)}><option value="">Tous les sets</option><option value="true">Sets incomplets</option></select></label>
       <label>Cadeau<select value={filters.gift} onChange={(event) => update('gift', event.target.value)}><option value="">Tous</option><option value="true">Cadeaux uniquement</option><option value="false">Achats uniquement</option></select></label>
       <label>Date d’achat — du<input type="date" value={filters.purchaseDateFrom} onChange={(event) => update('purchaseDateFrom', event.target.value)} /></label>
       <label>Au<input type="date" value={filters.purchaseDateTo} onChange={(event) => update('purchaseDateTo', event.target.value)} /></label>

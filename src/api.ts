@@ -52,6 +52,7 @@ export const collectionApi = {
     if (query) params.set('q', query)
     if (cursor) params.set('cursor', cursor)
     if (filters) {
+      if (filters.incomplete) params.set('incomplete', filters.incomplete)
       if (filters.brand) params.set('brand', filters.brand)
       if (filters.theme) params.set('theme', filters.theme)
       if (filters.condition) params.set('condition', filters.condition)

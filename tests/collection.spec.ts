@@ -41,17 +41,25 @@ test('statistics filter by raw brand and theme and can be cleared', async ({ pag
   const items = [
     { id: '1', name: 'Falcon', brand: 'LEGO', theme: 'Star Wars' },
     { id: '2', name: 'Dinosaur', brand: 'Jie Star', theme: 'Dinosaures' },
-  ].map((item) => ({ ...item, setNumber: '12345', imageUrl: '/test.jpg', totalInvested: '10', condition: 'Neuf', missingPartsCount: 0 }))
+  ].map((item) => ({ ...item, setNumber: '12345', imageUrl: '/test.jpg', totalInvested: '10', condition: 'Neuf', missingPartsCount: item.id === '1' ? 3 : 0 }))
   const brands = ['LEGO', 'Jie Star', 'CaDA', 'Lumibricks', 'MEGA', 'Mattel Brick Shop'].map((label) => ({ label, count: 1 }))
   await page.route('**/api/atypibrick/v1/**', async (route) => {
     const url = new URL(route.request().url())
     const json = (value: unknown) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(value) })
     if (url.pathname.endsWith('/auth/me')) return json({ email: 'test@example.org' })
     if (url.pathname.endsWith('/collection/summary')) return json({ itemCount: 2, setCount: 2, totalParts: 100, totalInvested: '20', brands, themes: [{ label: 'Star Wars', brands: ['LEGO'], count: 1 }], conditions: [], purchaseYears: [] })
-    if (url.pathname.endsWith('/collection')) return json({ items: items.filter((item) => (!url.searchParams.get('brand') || item.brand === url.searchParams.get('brand')) && (!url.searchParams.get('theme') || item.theme === url.searchParams.get('theme'))), hasMore: false, nextCursor: null })
+    if (url.pathname.endsWith('/missing-parts')) return json([])
+    if (url.pathname.endsWith('/collection')) return json({ items: items.filter((item) => (!url.searchParams.get('incomplete') || item.missingPartsCount > 0) && (!url.searchParams.get('brand') || item.brand === url.searchParams.get('brand')) && (!url.searchParams.get('theme') || item.theme === url.searchParams.get('theme'))), hasMore: false, nextCursor: null })
     return route.fulfill({ status: 404, body: '{}' })
   })
   await page.goto('/')
+  await expect(page.locator('.set-card')).toHaveCount(2)
+  await page.getByRole('button', { name: 'Sets incomplets', exact: true }).click()
+  await expect(page.locator('.set-card')).toHaveCount(1)
+  await page.getByRole('button', { name: '3 pièces manquantes', exact: true }).click()
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Pièces manquantes', exact: true })).toBeVisible()
+  await page.getByLabel('Fermer', { exact: true }).click()
+  await page.getByRole('button', { name: 'Effacer les filtres', exact: true }).click()
   await expect(page.locator('.set-card')).toHaveCount(2)
   await page.getByRole('button', { name: 'Filtrer : LEGO', exact: true }).click()
   await expect(page.locator('.set-card')).toHaveCount(1)
