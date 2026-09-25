@@ -123,5 +123,7 @@ test('save feedback and deletion undo handle failures without losing data', asyn
   await expect(page.locator('.set-card')).toHaveCount(1)
   await expect(page.getByText('Suppression annulée. Le set a été restauré.', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Annuler la suppression', exact: true })).toHaveCount(0)
+  await expect(page.getByText('Suppression annulée. Le set a été restauré.', { exact: true })).toHaveCount(0, { timeout: 7000 })
+  await expect(page.getByRole('alert')).toHaveCount(0, { timeout: 7000 })
   expect(errors).toEqual([])
 })

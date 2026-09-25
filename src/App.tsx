@@ -53,11 +53,19 @@ function App() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<LegoSet | null>(null)
   const [loading, setLoading] = useState(true)
-  const [notices, setNotices] = useState<{ id: number; message: string; error?: boolean; undoId?: string }[]>([])
+  const [notices, setNotices] = useState<{ id: number; message: string; expiresAt: number; error?: boolean; undoId?: string }[]>([])
   const noticeId = useRef(0)
   const actionPending = useRef(false)
   const [actionBusy, setActionBusy] = useState(false)
-  const notify = (message: string, error = false, undoId?: string) => setNotices((current) => [...current, { id: ++noticeId.current, message, error, undoId }])
+  const notify = (message: string, error = false, undoId?: string) => setNotices((current) => [...current, { id: ++noticeId.current, message, error, undoId, expiresAt: Date.now() + (error || undoId ? 10000 : 5000) }])
+  useEffect(() => {
+    if (!notices.length || actionBusy) return
+    const nextExpiry = Math.min(...notices.map((notice) => notice.expiresAt))
+    const timer = window.setTimeout(() => {
+      setNotices((current) => current.filter((notice) => notice.expiresAt > Date.now()))
+    }, Math.max(0, nextExpiry - Date.now()))
+    return () => window.clearTimeout(timer)
+  }, [notices, actionBusy])
   const [error, setError] = useState('')
   const listGeneration = useRef(0)
   const loadingMoreRef = useRef(false)
