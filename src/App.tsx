@@ -191,6 +191,7 @@ function App() {
       </section>
       <section className="stats breakdown-stats" id="stats">
         <StatisticsBreakdown title="RÉPARTITION PAR MARQUE" subtitle="Marques de votre collection" icon={<Box />} items={summary.brands} selectedLabel={filters.brand} onSelect={(item) => selectStatistic({ brand: item.label as CollectionFilters['brand'] })} />
+        <StatisticsBreakdown title="NOMBRE DE BRIQUES PAR MARQUE" subtitle="Total des pièces renseignées" icon={<Puzzle />} items={summary.partsByBrand ?? []} selectedLabel={filters.brand} onSelect={(item) => selectStatistic({ brand: item.label as CollectionFilters['brand'] })} />
         <StatisticsBreakdown title="RÉPARTITION PAR THÈME" subtitle="Univers les plus présents" icon={<Palette />} items={summary.themes} formatLabel={(item) => item.brands?.length ? `${item.label} (${item.brands.join(', ')})` : item.label} selectedLabel={filters.theme} onSelect={(item) => selectStatistic({ theme: item.label })} />
         <StatisticsBreakdown title="CONDITIONS D’ACHAT" subtitle="Sets achetés neufs ou d’occasion" icon={<Tags />} items={summary.conditions} />
         <StatisticsBreakdown title="ANNÉES D’ACHAT" subtitle="Chronologie de la collection" icon={<CalendarDays />} items={summary.purchaseYears} />
