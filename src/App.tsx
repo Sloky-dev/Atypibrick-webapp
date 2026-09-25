@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Box, CalendarDays, ChevronRight, ClipboardCheck, ExternalLink, LayoutGrid, Library, LogOut, Menu, PackagePlus, Palette, Pencil, Puzzle, Search, SlidersHorizontal, Tags, Trash2, UserRound, X } from 'lucide-react'
-import { authApi, clearSession, collectionApi } from './api'
+import { authApi, clearSession, collectionApi, trashApi } from './api'
 import { AccountModal } from './components/AccountModal'
 import { LoginPage } from './components/LoginPage'
 import { InventoryModal } from './components/InventoryModal'
@@ -53,6 +53,11 @@ function App() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<LegoSet | null>(null)
   const [loading, setLoading] = useState(true)
+  const [notices, setNotices] = useState<{ id: number; message: string; error?: boolean; undoId?: string }[]>([])
+  const noticeId = useRef(0)
+  const actionPending = useRef(false)
+  const [actionBusy, setActionBusy] = useState(false)
+  const notify = (message: string, error = false, undoId?: string) => setNotices((current) => [...current, { id: ++noticeId.current, message, error, undoId }])
   const [error, setError] = useState('')
   const listGeneration = useRef(0)
   const loadingMoreRef = useRef(false)
@@ -114,8 +119,33 @@ function App() {
   }, [hasMore, loadMore, loading])
   useEffect(() => { const logout = () => { setUser(null) }; window.addEventListener('atypibrick:unauthorized', logout); return () => window.removeEventListener('atypibrick:unauthorized', logout) }, [])
   const openCreate = () => { setEditing(null); setFormOpen(true) }
-  const save = async (payload: LegoSetPayload) => { if (editing) await collectionApi.update(editing.id, payload); else await collectionApi.create(payload); setFormOpen(false); await load(query.trim()) }
-  const remove = async (item: LegoSet) => { if (!confirm(`Placer « ${item.name} » dans la corbeille ? Vous pourrez le restaurer pendant 30 jours.`)) return; await collectionApi.remove(item.id); await load(query.trim()) }
+  const save = async (payload: LegoSetPayload) => {
+    if (editing) await collectionApi.update(editing.id, payload); else await collectionApi.create(payload)
+    setFormOpen(false)
+    notify(editing ? 'Modifications enregistrées.' : 'Set ajouté à votre collection.')
+    await load(query.trim())
+  }
+  const remove = async (item: LegoSet) => {
+    if (actionPending.current) return
+    actionPending.current = true; setActionBusy(true)
+    try {
+      await collectionApi.remove(item.id)
+      notify(`« ${item.name} » placé dans la corbeille.`, false, item.id)
+      await load(query.trim())
+    } catch (reason) { notify(reason instanceof Error ? reason.message : 'Impossible de supprimer le set.', true) }
+    finally { actionPending.current = false; setActionBusy(false) }
+  }
+  const undoRemove = async (id: number, setId: string) => {
+    if (actionPending.current) return
+    actionPending.current = true; setActionBusy(true)
+    try {
+      await trashApi.restore(setId)
+      setNotices((current) => current.filter((notice) => notice.id !== id))
+      notify('Suppression annulée. Le set a été restauré.')
+      await load(query.trim())
+    } catch (reason) { notify(reason instanceof Error ? reason.message : 'Impossible de restaurer le set. Réessayez.', true) }
+    finally { actionPending.current = false; setActionBusy(false) }
+  }
   const inventoryCompleted = async () => { setInventoryOpen(false); await load(query.trim()) }
   const activeFilterCount = Object.entries(filters).filter(([key, value]) => key === 'sort' ? value !== 'newest' : Boolean(value)).length
 
@@ -160,21 +190,22 @@ function App() {
       <section className="collection" id="collection"><div className="section-head"><div><span className="eyebrow">INVENTAIRE</span><h2>Mes sets BRICK</h2></div><div className="collection-tools"><button type="button" className={`filter-toggle ${filters.incomplete ? 'active' : ''}`} aria-pressed={Boolean(filters.incomplete)} onClick={() => setFilters((current) => ({ ...current, incomplete: current.incomplete ? '' : 'true' }))}><Puzzle /> Sets incomplets</button><button className={`filter-toggle ${activeFilterCount ? 'active' : ''}`} onClick={() => setFiltersOpen((open) => !open)}><SlidersHorizontal /> Filtres{activeFilterCount ? ` (${activeFilterCount})` : ''}</button><div className="search"><Search size={18} /><input aria-label="Rechercher" placeholder="Rechercher un set, un thème…" value={query} onChange={(e) => setQuery(e.target.value)} /></div></div></div>
         {(activeFilterCount > 0 || query) && <div className="active-collection-filters"><span>{[filters.brand, filters.theme, filters.condition, filters.incomplete && 'Sets incomplets'].filter(Boolean).join(' · ') || 'Liste filtrée'}</span><button type="button" onClick={() => { setFilters(emptyCollectionFilters); setQuery('') }}><X size={14} /> Effacer les filtres</button></div>}
         {filtersOpen && <CollectionFiltersPanel filters={filters} summary={summary} onChange={setFilters} onClose={() => setFiltersOpen(false)} />}
-        {error && <div className="error"><strong>Le backend ne répond pas.</strong><span>{error}</span><button onClick={() => void load()}>Réessayer</button></div>}
+        {error && <div className="error"><strong>Impossible d’actualiser la collection.</strong><span>{error}</span><button onClick={() => void load(query.trim())}>Réessayer</button></div>}
         {!error && loading && <div className="empty"><div className="loader" /><p>Chargement de votre collection…</p></div>}
         {!error && !loading && sets.length === 0 && <div className="empty"><span className="empty-icon"><LayoutGrid /></span><h3>{query || activeFilterCount ? 'Aucun set ne correspond' : 'Votre collection commence ici'}</h3><p>{query || activeFilterCount ? 'Modifiez ou effacez vos filtres.' : 'Ajoutez votre premier set LEGO pour commencer à suivre votre investissement.'}</p>{!query && !activeFilterCount && <button className="button primary" onClick={openCreate}><PackagePlus size={18} /> Ajouter mon premier set</button>}</div>}
         {!error && !loading && sets.length > 0 && <><div className="set-grid">{sets.map((item) => <article className="set-card" key={item.id}>
           <div className="set-visual">{item.imageUrl ? <span className="set-image-frame"><img src={item.imageUrl} alt="" /></span> : <span><Box /></span>}<span className="set-badges"><b>{item.isGift ? 'Cadeau' : item.condition}</b>{item.isSealed && <b>Scellé</b>}{item.brand === 'LEGO' && item.missingPartsCount > 0 && <b className="incomplete">Incomplet</b>}</span></div>
-          <div className="set-content"><small>{item.brand} · {item.theme || 'Sans thème'}{item.numParts ? ` · ${item.numParts.toLocaleString('fr-FR')} pièces` : ''} · #{item.setNumber}</small><h3>{item.name}</h3>{item.brand === 'LEGO' && item.missingPartsCount > 0 && <button type="button" className="missing-parts-link" onClick={() => setMissingPartsSet(item)}><Puzzle size={15} /> {item.missingPartsCount} pièce{item.missingPartsCount > 1 ? 's' : ''} manquante{item.missingPartsCount > 1 ? 's' : ''}</button>}<div className="set-bottom"><div><span>{Number(item.totalInvested) > 0 ? 'Investi' : 'Reçu en cadeau'}</span><strong>{Number(item.totalInvested) > 0 ? euro.format(Number(item.totalInvested)) : 'Cadeau'}</strong></div><div className="card-actions">{item.brand === 'LEGO' && <button onClick={() => setMissingPartsSet(item)} aria-label="Gérer les pièces manquantes" title="Pièces manquantes"><Puzzle /></button>}<button onClick={() => { setEditing(item); setFormOpen(true) }} aria-label="Modifier"><Pencil /></button><button className="danger" onClick={() => void remove(item)} aria-label="Supprimer"><Trash2 /></button><ChevronRight className="chevron" /></div></div></div>
+          <div className="set-content"><small>{item.brand} · {item.theme || 'Sans thème'}{item.numParts ? ` · ${item.numParts.toLocaleString('fr-FR')} pièces` : ''} · #{item.setNumber}</small><h3>{item.name}</h3>{item.brand === 'LEGO' && item.missingPartsCount > 0 && <button type="button" className="missing-parts-link" onClick={() => setMissingPartsSet(item)}><Puzzle size={15} /> {item.missingPartsCount} pièce{item.missingPartsCount > 1 ? 's' : ''} manquante{item.missingPartsCount > 1 ? 's' : ''}</button>}<div className="set-bottom"><div><span>{Number(item.totalInvested) > 0 ? 'Investi' : 'Reçu en cadeau'}</span><strong>{Number(item.totalInvested) > 0 ? euro.format(Number(item.totalInvested)) : 'Cadeau'}</strong></div><div className="card-actions">{item.brand === 'LEGO' && <button onClick={() => setMissingPartsSet(item)} aria-label="Gérer les pièces manquantes" title="Pièces manquantes"><Puzzle /></button>}<button onClick={() => { setEditing(item); setFormOpen(true) }} aria-label="Modifier"><Pencil /></button><button className="danger" disabled={actionBusy} onClick={() => void remove(item)} aria-label="Supprimer"><Trash2 /></button><ChevronRight className="chevron" /></div></div></div>
         </article>)}</div><div ref={loadMoreSentinel} className="load-more-sentinel" aria-live="polite">{loadingMore && <><div className="loader" /><span>Chargement des sets suivants…</span></>}{!hasMore && <span>{sets.length} set{sets.length > 1 ? 's' : ''} affiché{sets.length > 1 ? 's' : ''}</span>}</div></>}
       </section>
     </main>
     <footer><div className="footer-brand"><img src="/atypik-mark.svg" alt="" width="34" height="34" /><span>ATYPIBRICK<small>UN UNIVERS ATYPIK</small></span></div><p>Votre collection. Votre histoire. Brique après brique.</p><a href="https://atypikbzh.fr/">Atypik — Le Studio ↗</a></footer>
     </div>
+    <div className="action-notices" aria-label="Notifications">{notices.map((notice) => <div className={`action-notice ${notice.error ? 'is-error' : ''}`} key={notice.id}><span role={notice.error ? 'alert' : 'status'}>{notice.message}</span>{notice.undoId && <button type="button" disabled={actionBusy} onClick={() => void undoRemove(notice.id, notice.undoId!)}>Annuler la suppression</button>}<button type="button" disabled={actionBusy} aria-label="Fermer la notification" onClick={() => setNotices((current) => current.filter((item) => item.id !== notice.id))}><X size={16} /></button></div>)}</div>
     {formOpen && <SetForm item={editing} onClose={() => setFormOpen(false)} onSubmit={save} />}
     {accountOpen && <AccountModal user={user} onClose={() => setAccountOpen(false)} />}
     {inventoryOpen && <InventoryModal onClose={() => setInventoryOpen(false)} onCompleted={inventoryCompleted} />}
-    {trashOpen && <TrashModal onClose={() => setTrashOpen(false)} onRestored={() => load(query.trim())} />}
+    {trashOpen && <TrashModal onClose={() => setTrashOpen(false)} onRestored={async () => { notify('Set restauré dans la collection.'); await load(query.trim()) }} />}
     {missingPartsSet?.brand === 'LEGO' && <MissingPartsModal set={missingPartsSet} onClose={() => { setMissingPartsSet(null); if (filters.incomplete) void load(query.trim()) }} onChange={(count, addedInvestment = 0) => { const updateSet = (item: LegoSet) => item.id === missingPartsSet.id ? { ...item, missingPartsCount: count, replacementCost: String(Number(item.replacementCost) + addedInvestment), totalInvested: String(Number(item.totalInvested) + addedInvestment) } : item; setSets((current) => current.map(updateSet)); setLatestSet((current) => current ? updateSet(current) : current); setMissingPartsSet((current) => current ? updateSet(current) : current); if (addedInvestment) setSummary((current) => ({ ...current, totalInvested: String(Number(current.totalInvested) + addedInvestment) })) }} />}
     {pickABrickOpen && <PickABrickModal onClose={() => setPickABrickOpen(false)} />}
   </div>

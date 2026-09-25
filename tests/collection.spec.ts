@@ -79,3 +79,49 @@ test('statistics filter by raw brand and theme and can be cleared', async ({ pag
   await expect(page.locator('.set-card')).toHaveCount(2)
   await expect(page.getByRole('button', { name: 'Effacer les filtres', exact: true })).toHaveCount(0)
 })
+
+
+test('save feedback and deletion undo handle failures without losing data', async ({ page }) => {
+  let deleted = false
+  let failSave = true
+  let failRestore = true
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  const item = { id: 'set-1', name: 'Falcon', setNumber: '75192', brand: 'LEGO', theme: 'Star Wars', imageUrl: '/test.jpg', numParts: 100, purchasePrice: '50', totalInvested: '50', condition: 'Neuf', notes: '', missingPartsCount: 0, isGift: false, isSealed: false }
+  await page.route('**/api/atypibrick/v1/**', async (route) => {
+    const path = new URL(route.request().url()).pathname
+    const json = (value: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) })
+    if (path.endsWith('/auth/me')) return json({ email: 'test@example.org' })
+    if (path.endsWith('/collection/summary')) return json({ itemCount: deleted ? 0 : 1, setCount: 1, totalParts: 100, totalInvested: '50', brands: [], themes: [], conditions: [], purchaseYears: [] })
+    if (path.endsWith('/collection/set-1') && route.request().method() === 'PUT') {
+      if (failSave) return json({ detail: [{ loc: ['body', 'purchasePrice'], msg: 'invalid' }] }, 422)
+      return json(item)
+    }
+    if (path.endsWith('/collection/set-1') && route.request().method() === 'DELETE') { deleted = true; return route.fulfill({ status: 204 }) }
+    if (path.endsWith('/trash/set-1/restore')) {
+      if (failRestore) return route.fulfill({ status: 503, body: 'Internal error' })
+      deleted = false; return route.fulfill({ status: 204 })
+    }
+    if (path.endsWith('/collection')) return json({ items: deleted ? [] : [item], hasMore: false, nextCursor: null })
+    return json({}, 404)
+  })
+  await page.goto('/')
+  await page.locator('.set-card').getByRole('button', { name: 'Modifier', exact: true }).click()
+  await page.getByLabel('Notes').fill('Texte conservé')
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Certaines informations sont invalides')
+  await expect(page.getByLabel('Notes')).toHaveValue('Texte conservé')
+  failSave = false
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('Modifications enregistrées')
+  await page.locator('.set-card').getByRole('button', { name: 'Supprimer', exact: true }).click()
+  await expect(page.locator('.set-card')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Annuler la suppression', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Le serveur rencontre un problème')
+  failRestore = false
+  await page.getByRole('button', { name: 'Annuler la suppression', exact: true }).click()
+  await expect(page.locator('.set-card')).toHaveCount(1)
+  await expect(page.getByText('Suppression annulée. Le set a été restauré.', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Annuler la suppression', exact: true })).toHaveCount(0)
+  expect(errors).toEqual([])
+})

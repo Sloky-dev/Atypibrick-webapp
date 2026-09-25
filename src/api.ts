@@ -31,7 +31,7 @@ async function refreshSession(): Promise<boolean> {
 
 export async function request<T>(path: string, init?: RequestInit, retry = true): Promise<T> {
   const token = localStorage.getItem(ACCESS_TOKEN_KEY)
-  const response = await fetch(`${API_URL}${path}`, { ...init, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init?.headers } })
+  const response = await fetch(`${API_URL}${path}`, { ...init, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init?.headers } }).catch(() => { throw new Error('Connexion au serveur interrompue. Vérifiez votre connexion puis réessayez. Si vous envoyiez une modification, vérifiez la collection avant de recommencer.') })
   if (!response.ok) {
     const body = await response.json().catch(() => null)
     if (response.status === 401 && path !== '/auth/login' && path !== '/auth/refresh') {
@@ -39,7 +39,14 @@ export async function request<T>(path: string, init?: RequestInit, retry = true)
       clearSession()
       window.dispatchEvent(new Event('atypibrick:unauthorized'))
     }
-    throw new Error(body?.detail || `Erreur API (${response.status})`)
+    const fallback = response.status >= 500 ? 'Le serveur rencontre un problème. Réessayez dans quelques instants.'
+      : response.status === 401 ? 'Votre session a expiré. Reconnectez-vous.'
+      : response.status === 403 ? 'Vous ne pouvez pas effectuer cette action.'
+      : response.status === 404 ? 'Cet élément est introuvable. Actualisez la collection.'
+      : response.status === 422 ? 'Certaines informations sont invalides. Vérifiez les champs du formulaire.'
+      : response.status === 429 ? 'Trop de demandes. Patientez un instant avant de réessayer.'
+      : 'L’action a échoué. Vérifiez les informations puis réessayez.'
+    throw new Error(response.status < 500 && typeof body?.detail === 'string' ? body.detail : fallback)
   }
   if (response.status === 204) return undefined as T
   if (!response.headers.get('content-type')?.includes('application/json')) return await response.blob() as T

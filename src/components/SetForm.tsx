@@ -9,6 +9,7 @@ type Props = { item: LegoSet | null; onClose: () => void; onSubmit: (payload: Le
 
 export function SetForm({ item, onClose, onSubmit }: Props) {
   const [form, setForm] = useState<LegoSetPayload>(emptyForm)
+  const [saveError, setSaveError] = useState('')
   const [saving, setSaving] = useState(false)
   const [resolvedSet, setResolvedSet] = useState<LegoSetNameLookup | null>(null)
   const [lookupError, setLookupError] = useState('')
@@ -36,7 +37,7 @@ export function SetForm({ item, onClose, onSubmit }: Props) {
   const update = (key: keyof LegoSetPayload, value: string | number | null) => setForm((current) => ({ ...current, [key]: value }))
 
   return <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-    <form className="modal" onSubmit={async (e) => { e.preventDefault(); setSaving(true); try { await onSubmit(form) } finally { setSaving(false) } }}>
+    <form className="modal" onSubmit={async (e) => { e.preventDefault(); if (saving) return; setSaving(true); setSaveError(''); try { await onSubmit(form) } catch (reason) { setSaveError(reason instanceof Error ? reason.message : 'Impossible d’enregistrer le set. Réessayez.') } finally { setSaving(false) } }}>
       <div className="modal-head"><div><span className="eyebrow">INVENTAIRE</span><h2>{item ? 'Modifier le set' : 'Ajouter un set'}</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Fermer"><X /></button></div>
       <div className="form-grid">
         <label>Marque<select value={form.brand} onChange={(e) => setForm((current) => ({ ...current, brand: e.target.value as LegoSetPayload['brand'], setNumber: '' }))}><option>LEGO</option><option>CaDA</option><option>Jie Star</option><option>Lumibricks</option><option>MEGA</option><option>Mattel Brick Shop</option></select></label>
@@ -50,6 +51,7 @@ export function SetForm({ item, onClose, onSubmit }: Props) {
         <label>Date d'achat<input type="date" value={form.purchaseDate || ''} onChange={(e) => update('purchaseDate', e.target.value || null)} /></label>
         <label className="full">Notes<textarea rows={3} placeholder="Lieu d'achat, état de la boîte…" value={form.notes} onChange={(e) => update('notes', e.target.value)} /></label>
       </div>
+      {saveError && <p className="form-error" role="alert">{saveError}</p>}
       <div className="modal-actions"><button type="button" className="button ghost" onClick={onClose}>Annuler</button><button className="button primary" disabled={saving || lookingUp || !resolvedSet}>{saving ? 'Enregistrement…' : item ? 'Enregistrer' : 'Ajouter à ma collection'}</button></div>
     </form>
   </div>
