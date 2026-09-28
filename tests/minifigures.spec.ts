@@ -8,7 +8,7 @@ test('collect characters, duplicates, sealed boxes and restore an individual cop
   let copies: MiniCopy[] = []
   let sequence = 0
   let failSave = false
-  const catalog = { name: 'Série Shrek', brand: 'LEGO', reference: '71053', theme: 'Shrek', expectedCount: 12, characters: ['Shrek', 'Fiona et l’Âne', 'Pinocchio', '’Tit Biscuit', 'La Dragonne', 'Le Chat Potté', 'Thelonious', 'Le Grand Méchant Loup', 'Merlin', 'Lord Farquaad', 'Marraine la Bonne Fée', 'Prince Charmant'].map((name) => ({ name, catalogReference: null, imageUrl: null })) }
+  const catalog = { name: 'Série Shrek', brand: 'LEGO', reference: '71053', theme: 'Shrek', expectedCount: 12, characters: ['Shrek', 'Fiona et l’Âne', 'Pinocchio', '’Tit Biscuit', 'La Dragonne', 'Le Chat Potté', 'Thelonious', 'Le Grand Méchant Loup', 'Merlin', 'Lord Farquaad', 'Marraine la Bonne Fée', 'Prince Charmant'].map((name) => ({ name, catalogReference: null })) }
   await page.route('**/api/atypibrick/v1/**', async (route) => {
     const path = new URL(route.request().url()).pathname.replace('/api/atypibrick/v1', '')
     const method = route.request().method()
@@ -18,6 +18,11 @@ test('collect characters, duplicates, sealed boxes and restore an individual cop
     if (path === '/collection/summary') return json({ itemCount: 0, setCount: 0, totalParts: 0, totalInvested: '0', brands: [], themes: [], conditions: [], purchaseYears: [] })
     if (path === '/minifigures/catalog') return json([catalog])
     if (path === '/minifigures') return json({ series, copies: copies.filter((copy) => !copy.deletedAt) })
+    if (path.endsWith('/images')) {
+      const match = series.find((item) => item.id === path.split('/')[3])!
+      match.characters = match.characters.map((character, index) => ({ ...character, catalogReference: `colshr-${index + 1}`, imageUrl: `/media/atypibrick/minifigures/colshr-${index + 1}.webp?v=1` }))
+      return json(match)
+    }
     if (path === '/minifigures/series') { const payload = route.request().postDataJSON(); const id = `s${++sequence}`; const created = { ...payload, id, characters: payload.characters.map((character: object, i: number) => ({ ...character, id: `${id}-c${i}`, seriesId: id })) }; series.push(created); return json(created) }
     if (path.endsWith('/characters')) { const id = path.split('/')[3]; const character = { ...route.request().postDataJSON(), id: `c${++sequence}`, seriesId: id }; series.find((item) => item.id === id)!.characters.push(character); return json(character) }
     if (path === '/minifigures/copies') {
@@ -43,6 +48,7 @@ test('collect characters, duplicates, sealed boxes and restore an individual cop
   await page.getByRole('button', { name: 'Série Shrek · 71053 · 12 personnages', exact: true }).click()
   await expect(page.getByText('0/12 personnages · 0 exemplaires')).toBeVisible()
   const shrek = page.locator('.mini-character').filter({ has: page.getByText('Shrek', { exact: true }) })
+  await expect(shrek.locator('img')).toHaveAttribute('src', /\/media\/atypibrick\/minifigures\//)
   await shrek.click()
   await page.getByLabel('Prix d’achat (€)').fill('3.99')
   failSave = true
@@ -86,11 +92,9 @@ test('collect characters, duplicates, sealed boxes and restore an individual cop
   await expect(page.getByRole('heading', { name: 'Mes créations', exact: true })).toBeVisible()
   await page.getByRole('button', { name: /Ajouter un personnage/ }).click()
   await page.getByLabel('Nom et variante').fill('Astronaute')
-  const photo = await page.evaluate(() => { const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 32; const context = canvas.getContext('2d')!; context.fillStyle = '#deb72d'; context.fillRect(0, 0, 32, 32); return canvas.toDataURL('image/png').split(',')[1] })
-  await page.getByLabel('Photo personnelle').setInputFiles({ name: 'photo.png', mimeType: 'image/png', buffer: Buffer.from(photo, 'base64') })
-  await expect(page.getByAltText('Photo sélectionnée')).toBeVisible()
   await page.getByRole('button', { name: 'Ajouter le personnage', exact: true }).click()
-  await expect(page.locator('.mini-character').filter({ hasText: 'Astronaute' }).locator('img')).toBeVisible()
+  await expect(page.locator('.mini-character').filter({ hasText: 'Astronaute' })).toBeVisible()
+  await expect(page.locator('input[type=file]')).toHaveCount(0)
   await page.screenshot({ path: `test-results/minifigures-${test.info().project.name}.png`, fullPage: true })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   expect(errors).toEqual([])
