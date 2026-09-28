@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Plus, Pencil, Trash2, UserRound, X } from 'lucide-react'
 import { collectionApi } from '../api'
 import type { LegoSet } from '../types'
@@ -46,30 +46,6 @@ function CopyForm({ series, initial, id, onClose, onSave }: { series: MiniSeries
 
 export default function MinifiguresPage({ refreshVersion = 0 }: { refreshVersion?: number }) {
   const [data, setData] = useState<MiniCollection>({ series: [], copies: [] })
-  const imageAttempts = useRef(new Set<string>())
-  const [imagePending, setImagePending] = useState<string[]>([])
-  const [imageError, setImageError] = useState('')
-  const syncImages = useCallback(async (seriesId: string) => {
-    setImagePending((current) => [...current, seriesId]); setImageError('')
-    try {
-      const updated = await minifigureApi.images(seriesId)
-      setData((current) => ({ ...current, series: current.series.map((series) => series.id !== seriesId ? series : { ...series, characters: series.characters.map((character) => {
-        const match = updated.characters.find((item) => item.id === character.id && item.name === character.name && (!character.catalogReference || character.catalogReference === item.catalogReference))
-        return match ? { ...character, imageUrl: match.imageUrl, catalogReference: match.catalogReference } : character
-      }) }) }))
-      if (updated.characters.some((character) => character.catalogReference && !character.imageUrl)) setImageError('Certaines images sont indisponibles. Vous pouvez relancer leur récupération depuis la série.')
-    } catch (reason) { setImageError(reasonText(reason)) }
-    finally { setImagePending((current) => current.filter((id) => id !== seriesId)) }
-  }, [])
-  useEffect(() => {
-    for (const series of data.series) {
-      const missing = series.characters.filter((character) => !character.imageUrl && (character.catalogReference || series.reference === '71053'))
-      const signature = `${series.id}:${missing.map((character) => `${character.id}:${character.catalogReference || character.name}`).join('|')}`
-      if (series.brand.toLowerCase() === 'lego' && missing.length && !imageAttempts.current.has(signature) && !imagePending.includes(series.id)) {
-        imageAttempts.current.add(signature); void syncImages(series.id)
-      }
-    }
-  }, [data.series, imagePending, syncImages])
   const [catalog, setCatalog] = useState<MiniSeriesInput[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -123,11 +99,16 @@ export default function MinifiguresPage({ refreshVersion = 0 }: { refreshVersion
     return entries.map((character) => ({ series, character, copies: data.copies.filter((copy) => copy.seriesId === series.id && copy.characterId === character.id) }))
   }).filter(({ series, character, copies }) => copies.length && `${series.name} ${series.reference || ''} ${series.theme} ${series.brand} ${character.name}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()) && (!stateFilter || (stateFilter === 'duplicates' ? character.id !== null && copies.length > 1 : stateFilter === 'sealed' ? copies.some((copy) => copy.sealed) : copies.some((copy) => !copy.accessoriesComplete))))
   const unique = new Set(data.copies.filter((copy) => copy.characterId).map((copy) => copy.characterId)).size
+  const latestCopy = data.copies.reduce<MiniCopy | undefined>((latest, copy) => !latest || Date.parse(copy.createdAt) > Date.parse(latest.createdAt) ? copy : latest, undefined)
+  const latestSeries = data.series.find((series) => series.id === latestCopy?.seriesId)
+  const latestCharacter = latestSeries?.characters.find((character) => character.id === latestCopy?.characterId)
+  const browseSeries = () => { setView('series'); document.getElementById('mini-collection-tabs')?.scrollIntoView({ block: 'start' }) }
   const identified = data.copies.filter((copy) => copy.characterId).length
   return <section className="minifigures-page">
-    <div className="section-head"><div><span className="eyebrow">MA COLLECTION</span><h1>Minifigurines</h1><p>Vos personnages, vos séries et chaque exemplaire de votre collection.</p></div><button className="button primary" onClick={() => { setAddingSeries(true); setFormError('') }}><Plus /> Ajouter une série</button></div>
+    <section className="hero dashboard-hero mini-hero"><div className="hero-dashboard-copy"><span className="eyebrow">VUE D’ENSEMBLE</span><h1>Ma collection<br /><em>MINIFIG.</em></h1><p>Retrouvez vos personnages, complétez vos séries et suivez vos exemplaires et votre investissement.</p><div className="hero-actions"><button className="button primary" onClick={() => { setAddingSeries(true); setFormError('') }}><Plus /> Ajouter une série</button><button className="button ghost" onClick={browseSeries}><UserRound /> Compléter mes séries</button></div>
     <div className="mini-summary"><span><strong>{data.copies.length}</strong><small>EXEMPLAIRES</small></span><span><strong>{unique}</strong><small>PERSONNAGES</small></span><span><strong>{identified - unique}</strong><small>DOUBLONS</small></span><span><strong>{euro.format(data.copies.reduce((sum, copy) => sum + Number(copy.purchasePrice), 0))}</strong><small>INVESTIS EN FIGURINES</small></span></div>
-    <div className="mini-tabs" role="tablist" aria-label="Collection de minifigurines">{([['copies', 'Mes figurines'], ['series', 'Mes séries']] as const).map(([key, label]) => <button type="button" role="tab" id={`mini-tab-${key}`} aria-controls={`mini-panel-${key}`} aria-selected={view === key} tabIndex={view === key ? 0 : -1} key={key} onClick={() => setView(key)} onKeyDown={(event) => {
+    </div><div className="latest-set-panel">{latestCopy && latestSeries ? <><div className="latest-set-head"><span>DERNIÈRE MINIFIGURINE AJOUTÉE</span><button onClick={() => openCopy(latestSeries, latestCopy.characterId, latestCopy)}>Modifier <Pencil /></button></div><div className="latest-set-image">{latestCharacter?.imageUrl ? <img src={latestCharacter.imageUrl} alt={latestCharacter.name} /> : <UserRound />}</div><div className="latest-set-info"><small>{latestSeries.brand} · {latestSeries.name}{latestSeries.reference ? ` · #${latestSeries.reference}` : ''}</small><strong>{latestCharacter?.name || 'Personnage inconnu — boîte scellée'}</strong><span>{latestCopy.includedInSet ? 'Incluse dans un set' : latestCopy.isGift ? 'Reçue en cadeau' : euro.format(Number(latestCopy.purchasePrice))}</span></div></> : <div className="latest-set-empty"><UserRound /><span>VOTRE PREMIÈRE MINIFIGURINE</span><strong>Votre collection commence ici.</strong><button className="button primary" onClick={() => data.series.length ? browseSeries() : setAddingSeries(true)}><Plus /> Choisir une minifigurine</button></div>}</div></section>
+    <div className="mini-tabs" id="mini-collection-tabs" role="tablist" aria-label="Collection de minifigurines">{([['copies', 'Mes figurines'], ['series', 'Mes séries']] as const).map(([key, label]) => <button type="button" role="tab" id={`mini-tab-${key}`} aria-controls={`mini-panel-${key}`} aria-selected={view === key} tabIndex={view === key ? 0 : -1} key={key} onClick={() => setView(key)} onKeyDown={(event) => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
       event.preventDefault()
       const next = event.key === 'Home' ? 'copies' : event.key === 'End' ? 'series' : view === 'copies' ? 'series' : 'copies'
@@ -135,8 +116,6 @@ export default function MinifiguresPage({ refreshVersion = 0 }: { refreshVersion
     }}>{label}</button>)}</div>
     <div role="tabpanel" id={`mini-panel-${view}`} aria-labelledby={`mini-tab-${view}`}>
     <div className="mini-toolbar"><label>Rechercher<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Personnage, série, numéro, univers…" /></label><label>Série<select value={selectedSeries} onChange={(event) => setSelectedSeries(event.target.value)}><option value="">Toutes les séries</option>{data.series.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>{view === 'copies' && <label>Afficher<select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)}><option value="">Tous les exemplaires</option><option value="duplicates">Doublons</option><option value="sealed">Boîtes scellées</option><option value="incomplete">Accessoires incomplets</option></select></label>}{view === 'series' && <label>Progression<select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)}><option value="">Toutes les séries</option><option value="complete">Séries complètes</option><option value="incomplete">Séries à compléter</option></select></label>}{(search || selectedSeries || stateFilter) && <button className="button ghost" onClick={() => { setSearch(''); setSelectedSeries(''); setStateFilter('') }}>Effacer les filtres</button>}</div>
-    {imagePending.length > 0 && <p role="status">Récupération des images du catalogue…</p>}
-    {imageError && <p className="mini-hint" role="status">{imageError}</p>}
     {error && <div className="error" role="alert">{error}<button onClick={() => void load()}>Réessayer</button></div>}
     {loading && <p role="status">Chargement des minifigurines…</p>}
     {!loading && !data.series.length && !error && <div className="empty"><UserRound /><h3>Votre première série vous attend</h3><p>Recherchez Shrek ou 71053, dans le catalogue.</p><button className="button primary" onClick={() => { setAddingSeries(true); setFormError('') }}>Ajouter ma première série</button></div>}
@@ -145,7 +124,7 @@ export default function MinifiguresPage({ refreshVersion = 0 }: { refreshVersion
       const owned = new Set(copies.filter((copy) => copy.characterId).map((copy) => copy.characterId))
       const total = Math.max(series.expectedCount || 0, series.characters.length)
       const missing = series.characters.filter((character) => !owned.has(character.id))
-      return <article className="mini-series" key={series.id}><div className="mini-series-head"><div><small>{series.brand} {series.reference ? `· #${series.reference}` : ''} · {series.theme}</small><h2>{series.name}</h2><p>{owned.size}/{total || '?'} personnages · {copies.length} exemplaires</p></div><button className="button" disabled={imagePending.includes(series.id)} onClick={() => void syncImages(series.id)}>Récupérer les images</button><button className="button" onClick={() => openCopy(series, null)}>Ajouter une boîte scellée</button></div><progress aria-label={`Progression ${series.name}`} max={total || 1} value={owned.size} /><p className="mini-hint">{missing.length ? `À trouver : ${missing.map((character) => character.name).join(', ')}` : total > owned.size ? 'Complétez la liste des personnages pour suivre ceux qui vous manquent.' : total ? 'Série complète !' : 'Ajoutez les personnages de cette série.'}</p><div className="mini-grid" role="region" aria-label={`Personnages de ${series.name}`} tabIndex={0}>{series.characters.map((character) => {
+      return <article className="mini-series" key={series.id}><div className="mini-series-head"><div><small>{series.brand} {series.reference ? `· #${series.reference}` : ''} · {series.theme}</small><h2>{series.name}</h2><p>{owned.size}/{total || '?'} personnages · {copies.length} exemplaires</p></div><button className="button" onClick={() => openCopy(series, null)}>Ajouter une boîte scellée</button></div><progress aria-label={`Progression ${series.name}`} max={total || 1} value={owned.size} /><p className="mini-hint">{missing.length ? `À trouver : ${missing.map((character) => character.name).join(', ')}` : total > owned.size ? 'Complétez la liste des personnages pour suivre ceux qui vous manquent.' : total ? 'Série complète !' : 'Ajoutez les personnages de cette série.'}</p><div className="mini-grid" role="region" aria-label={`Personnages de ${series.name}`} tabIndex={0}>{series.characters.map((character) => {
         const count = copies.filter((copy) => copy.characterId === character.id).length
         return <div className="mini-character-wrap" key={character.id}><button className={`mini-character ${count ? 'owned' : ''}`} key={character.id} onClick={() => openCopy(series, character.id)}><div className="mini-image">{character.imageUrl ? <img src={character.imageUrl} alt={character.name} loading="lazy" /> : <UserRound />}</div><strong>{character.name}</strong><span>{count ? `Possédée ×${count}` : 'Manquante'}</span><small>Ajouter un exemplaire</small></button></div>
       })}</div></article>

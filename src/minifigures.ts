@@ -9,7 +9,6 @@ export type MiniCopy = MiniCopyInput & { id: string; createdAt: string; deletedA
 export type MiniCollection = { series: MiniSeries[]; copies: MiniCopy[] }
 export const minifigureApi = {
   list: () => request<MiniCollection>('/minifigures'),
-  images: (id: string) => request<MiniSeries>(`/minifigures/series/${id}/images`, { method: 'POST' }),
   catalog: () => request<MiniSeriesInput[]>('/minifigures/catalog'),
   series: (data: MiniSeriesInput) => request<MiniSeries>('/minifigures/series', { method: 'POST', body: JSON.stringify(data) }),
   save: (data: MiniCopyInput, id?: string) => request<MiniCopy>(`/minifigures/copies${id ? `/${id}` : ''}`, { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) }),

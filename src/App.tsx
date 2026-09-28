@@ -177,8 +177,8 @@ function App() {
       <button className="button primary sidebar-add" onClick={() => { openCreate(); setMenuOpen(false) }}><PackagePlus /> Ajouter un set</button>
       <nav className="sidebar-nav" aria-label="Navigation principale">
         <small>ESPACE COLLECTION</small>
-        <a className={section === 'sets' ? 'active' : ''} href="#collection" onClick={() => { setSection('sets'); setMenuOpen(false) }}><Library /> Ma collection</a>
-        <button type="button" className={section === 'minifigures' ? 'active' : ''} onClick={() => { setSection('minifigures'); setMenuOpen(false); window.scrollTo(0, 0) }}><UserRound /> Minifigurines</button>
+        <a className={section === 'sets' ? 'active' : ''} href="#collection" onClick={() => { setSection('sets'); setMenuOpen(false) }}><Library /> Mes sets</a>
+        <button type="button" className={section === 'minifigures' ? 'active' : ''} onClick={() => { setSection('minifigures'); setMenuOpen(false); window.scrollTo(0, 0) }}><UserRound /> Mes Minifigurines</button>
         <button type="button" onClick={() => { setPickABrickOpen(true); setMenuOpen(false) }}><Puzzle /> Pick a Brick</button>
         <button type="button" onClick={() => { setTrashOpen(true); setMenuOpen(false) }}><Trash2 /> Corbeille</button>
         <small>ATYPIBRICK</small>

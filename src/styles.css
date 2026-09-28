@@ -103,3 +103,19 @@ footer{min-height:140px;width:min(1180px,calc(100% - 40px));margin:auto;border-t
 .mini-tabs [role=tab][aria-selected=true]{color:var(--accent);border-bottom-color:var(--accent)}
 .mini-tabs [role=tab]:hover{color:#eee}
 .minifigures-page [role=tabpanel]>.mini-toolbar{padding:0 0 16px;border-bottom:1px solid var(--line)}
+
+/* Share the title height across each row of owned minifigures. */
+.mini-owned-card{display:grid;grid-template-rows:subgrid;grid-row:span 5;row-gap:12px;align-content:start}
+.mini-owned-card>.mini-image{margin-bottom:0}
+.mini-owned-card>h3{margin:0;line-height:1.4;align-self:start}
+.mini-owned-card>.button{margin:0;align-self:start}
+.mini-owned-card>details{align-self:start}
+
+.minifigures-page .mini-hero{padding-top:0;margin-bottom:28px}
+.minifigures-page .mini-hero h1{font:700 clamp(54px,6.5vw,90px)/.95 Manrope,sans-serif;letter-spacing:-4px;margin:26px 0 22px}
+.minifigures-page .mini-hero .hero-dashboard-copy>p{font-size:15px;line-height:1.8}
+.mini-hero .mini-summary{grid-template-columns:repeat(4,minmax(0,1fr));margin:36px 0 0}
+.mini-hero .mini-summary>span{padding:17px 14px}
+.mini-hero .mini-summary>span:first-child{padding-left:0}
+#mini-collection-tabs{scroll-margin-top:85px}
+@media(max-width:580px){.minifigures-page .mini-hero h1{font-size:52px;letter-spacing:-3px}.mini-hero .mini-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.mini-hero .mini-summary>span:nth-child(odd){padding-left:0}}

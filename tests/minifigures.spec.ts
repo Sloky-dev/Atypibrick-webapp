@@ -21,12 +21,7 @@ test('collect characters, duplicates, sealed boxes and restore an individual cop
     if (path === '/collection/summary') return json({ itemCount: 0, setCount: 0, totalParts: 0, totalInvested: '0', brands: [], themes: [], conditions: [], purchaseYears: [] })
     if (path === '/minifigures/catalog') return json([catalog])
     if (path === '/minifigures') return json({ series, copies: copies.filter((copy) => !copy.deletedAt) })
-    if (path.endsWith('/images')) {
-      const match = series.find((item) => item.id === path.split('/')[3])!
-      match.characters = match.characters.map((character, index) => ({ ...character, catalogReference: `colshr-${index + 1}`, imageUrl: `/media/atypibrick/minifigures/colshr-${index + 1}.webp?v=1` }))
-      return json(match)
-    }
-    if (path === '/minifigures/series') { const payload = route.request().postDataJSON(); const id = `s${++sequence}`; const created = { ...payload, id, characters: payload.characters.map((character: object, i: number) => ({ ...character, id: `${id}-c${i}`, seriesId: id })) }; series.push(created); return json(created) }
+    if (path === '/minifigures/series') { const payload = route.request().postDataJSON(); const id = `s${++sequence}`; const created = { ...payload, id, characters: payload.characters.map((character: object, i: number) => ({ ...character, id: `${id}-c${i}`, seriesId: id, imageUrl: `/media/atypibrick/minifigures/colshr-${i + 1}.webp?v=1` })) }; series.push(created); return json(created) }
     if (path.endsWith('/characters')) { const id = path.split('/')[3]; const character = { ...route.request().postDataJSON(), id: `c${++sequence}`, seriesId: id }; series.find((item) => item.id === id)!.characters.push(character); return json(character) }
     if (path === '/minifigures/copies') {
       if (failSave) return json({ detail: 'Temporary server error' }, 503)
@@ -44,12 +39,13 @@ test('collect characters, duplicates, sealed boxes and restore an individual cop
   await page.goto('/')
   const mobileMenu = page.getByRole('button', { name: 'Ouvrir le menu', exact: true })
   if (await mobileMenu.isVisible()) await mobileMenu.click()
-  await page.getByRole('button', { name: 'Minifigurines', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Minifigurines', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Mes Minifigurines', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Ma collection MINIFIG.', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Ajouter une série', exact: true }).click()
   await page.getByLabel('Rechercher une série du catalogue').fill('71053')
   await page.getByRole('button', { name: 'Série Shrek · 71053 · 12 personnages', exact: true }).click()
   await expect(page.getByText('0/12 personnages · 0 exemplaires')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Récupérer les images', exact: true })).toHaveCount(0)
   const shrek = page.locator('.mini-character').filter({ has: page.getByText('Shrek', { exact: true }) })
   await expect(shrek.locator('img')).toHaveAttribute('src', /\/media\/atypibrick\/minifigures\//)
   await shrek.click()
