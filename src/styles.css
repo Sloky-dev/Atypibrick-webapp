@@ -87,3 +87,5 @@ footer{min-height:140px;width:min(1180px,calc(100% - 40px));margin:auto;border-t
 .mini-series .mini-character>small{font-size:9px}
 .mini-series .mini-edit-character{padding:7px;font-size:9px}
 @media(max-width:580px){.mini-series{padding:12px}.mini-series>.mini-grid{grid-auto-columns:135px}.mini-series-head>div{flex-basis:100%}.mini-series-head{justify-content:flex-start}.mini-series .mini-image,.mini-series .mini-image img{height:100px}}
+
+.hero-summary .minifigure-investment{display:block;margin-top:6px;color:#aaa99f;font-size:11px;line-height:1.5;text-transform:none;letter-spacing:0}
