@@ -8,11 +8,14 @@ test('collect characters, duplicates, sealed boxes and restore an individual cop
   let copies: MiniCopy[] = []
   let sequence = 0
   let failSave = false
+  let setInTrash = true
   const catalog = { name: 'Série Shrek', brand: 'LEGO', reference: '71053', theme: 'Shrek', expectedCount: 12, characters: ['Shrek', 'Fiona et l’Âne', 'Pinocchio', '’Tit Biscuit', 'La Dragonne', 'Le Chat Potté', 'Thelonious', 'Le Grand Méchant Loup', 'Merlin', 'Lord Farquaad', 'Marraine la Bonne Fée', 'Prince Charmant'].map((name) => ({ name, catalogReference: null })) }
   await page.route('**/api/atypibrick/v1/**', async (route) => {
     const path = new URL(route.request().url()).pathname.replace('/api/atypibrick/v1', '')
     const method = route.request().method()
     const json = (value: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) })
+    if (path === '/trash') return json(setInTrash ? [{ id: 'deleted-set', name: 'Set supprimé', setNumber: '123', imageUrl: null, deletedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 86400000).toISOString() }] : [])
+    if (path === '/trash/deleted-set/restore') { setInTrash = false; return route.fulfill({ status: 204 }) }
     if (path === '/auth/me') return json({ email: 'test@example.org' })
     if (path === '/collection') return json({ items: [], nextCursor: null, hasMore: false })
     if (path === '/collection/summary') return json({ itemCount: 0, setCount: 0, totalParts: 0, totalInvested: '0', brands: [], themes: [], conditions: [], purchaseYears: [] })
@@ -79,6 +82,20 @@ test('collect characters, duplicates, sealed boxes and restore an individual cop
   await pinocchio.getByRole('button', { name: 'Supprimer Pinocchio', exact: true }).click()
   await expect(pinocchio).toHaveCount(0)
   await page.getByRole('button', { name: 'Annuler la suppression', exact: true }).click()
+  await expect(pinocchio).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Corbeille figurines', exact: true })).toHaveCount(0)
+  await pinocchio.locator('summary').click()
+  await pinocchio.getByRole('button', { name: 'Supprimer Pinocchio', exact: true }).click()
+  await expect(pinocchio).toHaveCount(0)
+  if (await mobileMenu.isVisible()) await mobileMenu.click()
+  await page.getByRole('button', { name: 'Corbeille', exact: true }).click()
+  const trashDialog = page.getByRole('dialog')
+  await expect(trashDialog.locator('.trash-list article')).toHaveCount(2)
+  await trashDialog.locator('article').filter({ hasText: 'Pinocchio' }).getByRole('button', { name: 'Restaurer', exact: true }).click()
+  await expect(trashDialog.locator('.trash-list article')).toHaveCount(1)
+  await trashDialog.locator('article').filter({ hasText: 'Set supprimé' }).getByRole('button', { name: 'Restaurer', exact: true }).click()
+  await expect(trashDialog.getByRole('heading', { name: 'La corbeille est vide' })).toBeVisible()
+  await trashDialog.getByLabel('Fermer', { exact: true }).click()
   await expect(pinocchio).toBeVisible()
   await page.getByRole('combobox', { name: 'Afficher', exact: true }).selectOption('duplicates')
   await expect(page.locator('.mini-owned-card')).toHaveCount(1)

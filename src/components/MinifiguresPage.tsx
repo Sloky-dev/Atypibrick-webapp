@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { Plus, Pencil, Trash2, UserRound, X, RotateCcw } from 'lucide-react'
+import { Plus, Pencil, Trash2, UserRound, X } from 'lucide-react'
 import { collectionApi } from '../api'
 import type { LegoSet } from '../types'
 import { minifigureApi, type MiniCollection, type MiniCopy, type MiniCopyInput, type MiniSeries, type MiniSeriesInput } from '../minifigures'
@@ -44,7 +44,7 @@ function CopyForm({ series, initial, id, onClose, onSave }: { series: MiniSeries
   </form></div>
 }
 
-export default function MinifiguresPage() {
+export default function MinifiguresPage({ refreshVersion = 0 }: { refreshVersion?: number }) {
   const [data, setData] = useState<MiniCollection>({ series: [], copies: [] })
   const imageAttempts = useRef(new Set<string>())
   const [imagePending, setImagePending] = useState<string[]>([])
@@ -75,11 +75,10 @@ export default function MinifiguresPage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState<{ message: string; undoId?: string } | null>(null)
   const [busy, setBusy] = useState(false)
-  const [view, setView] = useState<'copies' | 'series' | 'trash'>('copies')
+  const [view, setView] = useState<'copies' | 'series'>('copies')
   const [search, setSearch] = useState('')
   const [selectedSeries, setSelectedSeries] = useState('')
   const [stateFilter, setStateFilter] = useState('')
-  const [trash, setTrash] = useState<MiniCopy[]>([])
   const [addingSeries, setAddingSeries] = useState(false)
   const [seriesSearch, setSeriesSearch] = useState('')
   const [formError, setFormError] = useState('')
@@ -90,9 +89,8 @@ export default function MinifiguresPage() {
     catch (reason) { setError(reasonText(reason)) }
     finally { setLoading(false) }
   }, [])
-  useEffect(() => { void load(); void minifigureApi.catalog().then(setCatalog).catch(() => setCatalog([])) }, [load])
+  useEffect(() => { void load(); void minifigureApi.catalog().then(setCatalog).catch(() => setCatalog([])) }, [load, refreshVersion])
   useEffect(() => { if (!notice || busy) return; const timer = window.setTimeout(() => setNotice(null), notice.undoId ? 10000 : 5000); return () => window.clearTimeout(timer) }, [notice, busy])
-  const refreshTrash = async () => { try { setTrash(await minifigureApi.trash()) } catch (reason) { setError(reasonText(reason)) } }
   const openCopy = (series: MiniSeries, characterId: string | null, copy?: MiniCopy) => setEditing({ series, form: copy || blankCopy(series.id, characterId), id: copy?.id })
   const addSeries = async (payload: MiniSeriesInput) => {
     setBusy(true); setFormError('')
@@ -106,7 +104,7 @@ export default function MinifiguresPage() {
   }
   const restore = async (id: string) => {
     setBusy(true); setError('')
-    try { await minifigureApi.restore(id); await load(); await refreshTrash(); setNotice({ message: 'Exemplaire restauré.' }) }
+    try { await minifigureApi.restore(id); await load(); setNotice({ message: 'Exemplaire restauré.' }) }
     catch (reason) { setError(reasonText(reason)) } finally { setBusy(false) }
   }
   const matchesSeries = (series: MiniSeries) => (!selectedSeries || selectedSeries === series.id) && `${series.name} ${series.reference || ''} ${series.brand} ${series.theme}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())
@@ -120,8 +118,8 @@ export default function MinifiguresPage() {
   const identified = data.copies.filter((copy) => copy.characterId).length
   return <section className="minifigures-page">
     <div className="section-head"><div><span className="eyebrow">MA COLLECTION</span><h1>Minifigurines</h1><p>Vos personnages, vos séries et chaque exemplaire de votre collection.</p></div><button className="button primary" onClick={() => { setAddingSeries(true); setFormError('') }}><Plus /> Ajouter une série</button></div>
-    <div className="mini-summary"><span><strong>{data.copies.length}</strong> exemplaires</span><span><strong>{unique}</strong> personnages</span><span><strong>{identified - unique}</strong> doublons</span><span><strong>{euro.format(data.copies.reduce((sum, copy) => sum + Number(copy.purchasePrice), 0))}</strong> investis en figurines</span></div>
-    <div className="mini-toolbar"><div className="mini-tabs">{([['copies', 'Mes figurines'], ['series', 'Mes séries'], ['trash', 'Corbeille figurines']] as const).map(([key, label]) => <button type="button" key={key} aria-pressed={view === key} onClick={() => { setView(key); if (key === 'trash') void refreshTrash() }}>{label}</button>)}</div><label>Rechercher<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Personnage, série, numéro, univers…" /></label><label>Série<select value={selectedSeries} onChange={(event) => setSelectedSeries(event.target.value)}><option value="">Toutes les séries</option>{data.series.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>{view === 'copies' && <label>Afficher<select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)}><option value="">Tous les exemplaires</option><option value="duplicates">Doublons</option><option value="sealed">Boîtes scellées</option><option value="incomplete">Accessoires incomplets</option></select></label>}{(search || selectedSeries || stateFilter) && <button className="button ghost" onClick={() => { setSearch(''); setSelectedSeries(''); setStateFilter('') }}>Effacer les filtres</button>}</div>
+    <div className="mini-summary"><span><strong>{data.copies.length}</strong><small>EXEMPLAIRES</small></span><span><strong>{unique}</strong><small>PERSONNAGES</small></span><span><strong>{identified - unique}</strong><small>DOUBLONS</small></span><span><strong>{euro.format(data.copies.reduce((sum, copy) => sum + Number(copy.purchasePrice), 0))}</strong><small>INVESTIS EN FIGURINES</small></span></div>
+    <div className="mini-toolbar"><div className="mini-tabs">{([['copies', 'Mes figurines'], ['series', 'Mes séries']] as const).map(([key, label]) => <button type="button" key={key} aria-pressed={view === key} onClick={() => { setView(key) }}>{label}</button>)}</div><label>Rechercher<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Personnage, série, numéro, univers…" /></label><label>Série<select value={selectedSeries} onChange={(event) => setSelectedSeries(event.target.value)}><option value="">Toutes les séries</option>{data.series.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>{view === 'copies' && <label>Afficher<select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)}><option value="">Tous les exemplaires</option><option value="duplicates">Doublons</option><option value="sealed">Boîtes scellées</option><option value="incomplete">Accessoires incomplets</option></select></label>}{(search || selectedSeries || stateFilter) && <button className="button ghost" onClick={() => { setSearch(''); setSelectedSeries(''); setStateFilter('') }}>Effacer les filtres</button>}</div>
     {imagePending.length > 0 && <p role="status">Récupération des images du catalogue…</p>}
     {imageError && <p className="mini-hint" role="status">{imageError}</p>}
     {error && <div className="error" role="alert">{error}<button onClick={() => void load()}>Réessayer</button></div>}
@@ -139,7 +137,6 @@ export default function MinifiguresPage() {
     })}
     {view === 'copies' && <><div className="mini-grid">{groups.map(({ series, character, copies }) => <article className="mini-owned-card" key={`${series.id}-${character.id}`}><div className="mini-image">{character.imageUrl ? <img src={character.imageUrl} alt={character.name} loading="lazy" /> : <UserRound />}</div><small>{series.name} {series.reference ? `· #${series.reference}` : ''}</small><h3>{character.name} <span>×{copies.length}</span></h3><button className="button ghost" onClick={() => openCopy(series, character.id)}><Plus /> Ajouter un exemplaire</button><details><summary>Voir les {copies.length} exemplaire{copies.length > 1 ? 's' : ''}</summary>{copies.map((copy) => <div className="mini-copy" key={copy.id}><p>{copy.condition} · {copy.includedInSet ? 'Incluse dans un set' : copy.isGift ? 'Cadeau' : euro.format(Number(copy.purchasePrice))}{copy.sealed ? ' · Scellée' : ''}{!copy.accessoriesComplete ? ' · Accessoires incomplets' : ''}</p>{copy.purchaseDate && <small>Achat : {new Date(`${copy.purchaseDate}T12:00:00`).toLocaleDateString('fr-FR')}</small>}{copy.notes && <p>{copy.notes}</p>}<div><button aria-label={`Modifier ${character.name}`} onClick={() => openCopy(series, copy.characterId, copy)}><Pencil size={16} /> {copy.characterId ? 'Modifier' : 'Identifier / modifier'}</button><button disabled={busy} aria-label={`Supprimer ${character.name}`} onClick={() => void remove(copy)}><Trash2 size={16} /></button></div></div>)}</details></article>)}</div>{!loading && data.series.length > 0 && !groups.length && <div className="empty"><p>Aucune figurine pour cette sélection.</p><button className="button" onClick={() => setView('series')}>Choisir des personnages dans mes séries</button></div>}</>}
     {view === 'series' && data.series.length > 0 && !visibleSeries.length && <p>Aucune série ne correspond à la recherche.</p>}
-    {view === 'trash' && <div className="mini-trash"><p>Les exemplaires retirés restent restaurables ici.</p>{trash.filter((copy) => !selectedSeries || copy.seriesId === selectedSeries).filter((copy) => { const series = data.series.find((item) => item.id === copy.seriesId); return `${series?.name} ${series?.characters.find((character) => character.id === copy.characterId)?.name || 'Personnage inconnu'}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()) }).map((copy) => { const series = data.series.find((item) => item.id === copy.seriesId); return <article key={copy.id}><span>{series?.name} · {series?.characters.find((character) => character.id === copy.characterId)?.name || 'Personnage inconnu'}</span><button className="button" disabled={busy} onClick={() => void restore(copy.id)}><RotateCcw /> Restaurer</button></article> })}{!trash.length && <p>La corbeille des figurines est vide.</p>}</div>}
     {notice && <div className="action-notices"><div className="action-notice"><span role="status">{notice.message}</span>{notice.undoId && <button disabled={busy} onClick={() => void restore(notice.undoId!)}>Annuler la suppression</button>}<button aria-label="Fermer la notification" onClick={() => setNotice(null)}><X size={16} /></button></div></div>}
     {addingSeries && <div className="modal-backdrop"><section className="modal mini-form" role="dialog" aria-modal="true" aria-label="Ajouter une série"><div className="modal-head"><h2>Ajouter une série</h2><button className="icon-button" disabled={busy} aria-label="Fermer" onClick={() => setAddingSeries(false)}><X /></button></div><label>Rechercher une série du catalogue<input value={seriesSearch} onChange={(event) => setSeriesSearch(event.target.value)} placeholder="Shrek, 71053…" /></label><div className="mini-catalog">{catalog.filter((series) => `${series.name} ${series.reference}`.toLocaleLowerCase().includes(seriesSearch.toLocaleLowerCase())).map((series) => <button className="button" key={`${series.brand}-${series.reference}`} disabled={busy} onClick={() => void addSeries(series)}>{series.name} · {series.reference} · {series.characters.length} personnages</button>)}</div><p className="mini-hint">La composition des séries provient du catalogue LEGO / BrickLink et ne peut pas être modifiée.</p>{formError && <p className="form-error" role="alert">{formError}</p>}</section></div>}
     {editing && <CopyForm series={editing.series} initial={editing.form} id={editing.id} onClose={() => setEditing(null)} onSave={async () => { setEditing(null); setNotice({ message: editing.id ? 'Exemplaire modifié.' : 'Minifigurine ajoutée à votre collection.' }); await load() }} />}
