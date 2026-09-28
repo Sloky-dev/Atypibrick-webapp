@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Box, CalendarDays, ChevronRight, ClipboardCheck, ExternalLink, LayoutGrid, Library, LogOut, Menu, PackagePlus, Palette, Pencil, Puzzle, Search, SlidersHorizontal, Tags, Trash2, UserRound, X } from 'lucide-react'
 import { authApi, clearSession, collectionApi, trashApi } from './api'
 import { AccountModal } from './components/AccountModal'
@@ -11,6 +11,8 @@ import { CollectionFiltersPanel, emptyCollectionFilters } from './components/Col
 import { MissingPartsModal } from './components/MissingPartsModal'
 import { PickABrickModal } from './components/PickABrickModal'
 import type { CollectionFilters, CollectionSummary, LegoSet, LegoSetPayload, User } from './types'
+
+const MinifiguresPage = lazy(() => import('./components/MinifiguresPage'))
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 const PAGE_SIZE = 9
@@ -32,6 +34,7 @@ async function repairMissingImages(items: LegoSet[], onBatch: (items: LegoSet[])
 }
 
 function App() {
+  const [section, setSection] = useState<'sets' | 'minifigures'>('sets')
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -173,7 +176,8 @@ function App() {
       <button className="button primary sidebar-add" onClick={() => { openCreate(); setMenuOpen(false) }}><PackagePlus /> Ajouter un set</button>
       <nav className="sidebar-nav" aria-label="Navigation principale">
         <small>ESPACE COLLECTION</small>
-        <a className="active" href="#collection" onClick={() => { setMenuOpen(false) }}><Library /> Ma collection</a>
+        <a className={section === 'sets' ? 'active' : ''} href="#collection" onClick={() => { setSection('sets'); setMenuOpen(false) }}><Library /> Ma collection</a>
+        <button type="button" className={section === 'minifigures' ? 'active' : ''} onClick={() => { setSection('minifigures'); setMenuOpen(false); window.scrollTo(0, 0) }}><UserRound /> Minifigurines</button>
         <button type="button" onClick={() => { setPickABrickOpen(true); setMenuOpen(false) }}><Puzzle /> Pick a Brick</button>
         <button type="button" onClick={() => { setTrashOpen(true); setMenuOpen(false) }}><Trash2 /> Corbeille</button>
         <small>ATYPIBRICK</small>
@@ -185,6 +189,7 @@ function App() {
     <div className="page-shell">
     <header className="mobile-header"><a className="brand" href="#"><img src="/atypik-mark.svg" alt="" width="38" height="38" /><span><strong>ATYPIBRICK</strong><small>UN UNIVERS ATYPIK</small></span></a><button onClick={() => setMenuOpen(true)} aria-label="Ouvrir le menu"><Menu /></button></header>
     <main>
+      {section === 'minifigures' ? <Suspense fallback={<p>Chargement des minifigurines…</p>}><MinifiguresPage /></Suspense> : <>
       <section className="hero dashboard-hero">
         <div className="hero-dashboard-copy"><span className="eyebrow">VUE D’ENSEMBLE</span><h1>Ma collection<br /><em>BRICK.</em></h1><p>Retrouvez vos sets, suivez votre investissement et contrôlez votre collection depuis un seul espace.</p><div className="hero-actions"><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button><button className="button ghost" onClick={() => setInventoryOpen(true)}><ClipboardCheck /> Faire l’inventaire</button></div><div className="hero-summary"><span><strong>{summary.itemCount}</strong><small>EXEMPLAIRE{summary.itemCount > 1 ? 'S' : ''}</small></span><span><strong>{summary.totalParts.toLocaleString('fr-FR')}</strong><small>BRIQUES</small></span><span><strong>{euro.format(Number(summary.totalInvested))}</strong><small>INVESTIS</small></span></div></div>
         <div className="latest-set-panel">{latestSet ? <><div className="latest-set-head"><span>DERNIER AJOUT</span><button onClick={() => { setEditing(latestSet); setFormOpen(true) }}>Modifier <Pencil /></button></div><div className="latest-set-image">{latestSet.imageUrl ? <img src={latestSet.imageUrl} alt={`Boîte du set ${latestSet.name}`} /> : <Box />}</div><div className="latest-set-info"><small>{latestSet.brand} · {latestSet.theme || 'Sans thème'} · #{latestSet.setNumber}</small><strong>{latestSet.name}</strong><span>{Number(latestSet.totalInvested) > 0 ? euro.format(Number(latestSet.totalInvested)) : 'Reçu en cadeau'}</span></div></> : <><div className="latest-set-empty"><Box /><span>VOTRE PREMIER SET</span><strong>La collection commence ici.</strong><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button></div></>}</div>
@@ -207,6 +212,7 @@ function App() {
           <div className="set-content"><small>{item.brand} · {item.theme || 'Sans thème'}{item.numParts ? ` · ${item.numParts.toLocaleString('fr-FR')} pièces` : ''} · #{item.setNumber}</small><h3>{item.name}</h3>{item.brand === 'LEGO' && item.missingPartsCount > 0 && <button type="button" className="missing-parts-link" onClick={() => setMissingPartsSet(item)}><Puzzle size={15} /> {item.missingPartsCount} pièce{item.missingPartsCount > 1 ? 's' : ''} manquante{item.missingPartsCount > 1 ? 's' : ''}</button>}<div className="set-bottom"><div><span>{Number(item.totalInvested) > 0 ? 'Investi' : 'Reçu en cadeau'}</span><strong>{Number(item.totalInvested) > 0 ? euro.format(Number(item.totalInvested)) : 'Cadeau'}</strong></div><div className="card-actions">{item.brand === 'LEGO' && <button onClick={() => setMissingPartsSet(item)} aria-label="Gérer les pièces manquantes" title="Pièces manquantes"><Puzzle /></button>}<button onClick={() => { setEditing(item); setFormOpen(true) }} aria-label="Modifier"><Pencil /></button><button className="danger" disabled={actionBusy} onClick={() => void remove(item)} aria-label="Supprimer"><Trash2 /></button><ChevronRight className="chevron" /></div></div></div>
         </article>)}</div><div ref={loadMoreSentinel} className="load-more-sentinel" aria-live="polite">{loadingMore && <><div className="loader" /><span>Chargement des sets suivants…</span></>}{!hasMore && <span>{sets.length} set{sets.length > 1 ? 's' : ''} affiché{sets.length > 1 ? 's' : ''}</span>}</div></>}
       </section>
+      </>}
     </main>
     <footer><div className="footer-brand"><img src="/atypik-mark.svg" alt="" width="34" height="34" /><span>ATYPIBRICK<small>UN UNIVERS ATYPIK</small></span></div><p>Votre collection. Votre histoire. Brique après brique.</p><a href="https://atypikbzh.fr/">Atypik — Le Studio ↗</a></footer>
     </div>
