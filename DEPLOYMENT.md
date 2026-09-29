@@ -1,5 +1,29 @@
 # Déploiement Docker Atypibrick
 
+## État actuel : bascule confirmée
+
+Le rapport `atypibrick-cutover-rb2bnp1a.txt` confirme que le frontend est servi
+par Docker. Pages/assets, cache, en-tête de sécurité, fallback SPA, API sans
+authentification (401), média absent (404) et redirection HTTPS sont vérifiés.
+Les locations API et médias restent sur l'hôte. La connexion, la collection
+et l'affichage d'images réelles restent à vérifier dans le navigateur.
+
+Le conteneur `atypibrick-pilot-web-1` sert désormais la production : ne pas
+l'arrêter comme un simple pilote. Pour publier après commit/push, utiliser
+`bash /var/www/atypibrick_webapp/deploy.sh`.
+
+Sauvegarde Nginx de cette bascule :
+`/var/backups/atypik-migration/atypibrick-cutover-79ovber3/vhost.original`.
+Retour au service statique hôte si nécessaire :
+
+```bash
+sudo cp --preserve=mode,ownership /var/backups/atypik-migration/atypibrick-cutover-79ovber3/vhost.original /etc/nginx/sites-available/app.atypibrick.fr
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Conserver l'ancien dist pour ce retour arrière. La section suivante décrit
+la première bascule déjà effectuée ; ne pas la relancer.
+
 ## Première bascule
 
 Le site hôte est rétabli : six permissions corrigées, pages/SPA 200, asset
