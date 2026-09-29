@@ -9,7 +9,7 @@ import { StatisticsBreakdown } from './components/StatisticsBreakdown'
 import { TrashModal } from './components/TrashModal'
 import { CollectionFiltersPanel, emptyCollectionFilters } from './components/CollectionFiltersPanel'
 import { MissingPartsModal } from './components/MissingPartsModal'
-import { PickABrickModal } from './components/PickABrickModal'
+import { PickABrickPage } from './components/PickABrickPage'
 import type { CollectionFilters, CollectionSummary, LegoSet, LegoSetPayload, User } from './types'
 
 const MinifiguresPage = lazy(() => import('./components/MinifiguresPage'))
@@ -34,7 +34,7 @@ async function repairMissingImages(items: LegoSet[], onBatch: (items: LegoSet[])
 }
 
 function App() {
-  const [section, setSection] = useState<'sets' | 'minifigures'>('sets')
+  const [section, setSection] = useState<'sets' | 'minifigures' | 'pickabrick'>('sets')
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -43,7 +43,6 @@ function App() {
   const [miniRefreshVersion, setMiniRefreshVersion] = useState(0)
   const [trashOpen, setTrashOpen] = useState(false)
   const [missingPartsSet, setMissingPartsSet] = useState<LegoSet | null>(null)
-  const [pickABrickOpen, setPickABrickOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [sets, setSets] = useState<LegoSet[]>([])
   const [latestSet, setLatestSet] = useState<LegoSet | undefined>()
@@ -179,7 +178,7 @@ function App() {
         <small>ESPACE COLLECTION</small>
         <a className={section === 'sets' ? 'active' : ''} href="#collection" onClick={() => { setSection('sets'); setMenuOpen(false) }}><Library /> Mes sets</a>
         <button type="button" className={section === 'minifigures' ? 'active' : ''} onClick={() => { setSection('minifigures'); setMenuOpen(false); window.scrollTo(0, 0) }}><UserRound /> Mes Minifigurines</button>
-        <button type="button" onClick={() => { setPickABrickOpen(true); setMenuOpen(false) }}><Puzzle /> Pick a Brick</button>
+        <button type="button" className={section === 'pickabrick' ? 'active' : ''} onClick={() => { setSection('pickabrick'); setMenuOpen(false); window.scrollTo(0, 0) }}><Puzzle /> Pick a Brick</button>
         <button type="button" onClick={() => { setTrashOpen(true); setMenuOpen(false) }}><Trash2 /> Corbeille</button>
         <small>ATYPIBRICK</small>
         <a href="https://atypikbzh.fr/atypibrick/"><ExternalLink /> Découvrir l’univers</a>
@@ -190,7 +189,7 @@ function App() {
     <div className="page-shell">
     <header className="mobile-header"><a className="brand" href="#"><img src="/atypik-mark.svg" alt="" width="38" height="38" /><span><strong>ATYPIBRICK</strong><small>UN UNIVERS ATYPIK</small></span></a><button onClick={() => setMenuOpen(true)} aria-label="Ouvrir le menu"><Menu /></button></header>
     <main>
-      {section === 'minifigures' ? <Suspense fallback={<p>Chargement des minifigurines…</p>}><MinifiguresPage refreshVersion={miniRefreshVersion} /></Suspense> : <>
+      {section === 'pickabrick' ? <PickABrickPage /> : section === 'minifigures' ? <Suspense fallback={<p>Chargement des minifigurines…</p>}><MinifiguresPage refreshVersion={miniRefreshVersion} /></Suspense> : <>
       <section className="hero dashboard-hero">
         <div className="hero-dashboard-copy"><span className="eyebrow">VUE D’ENSEMBLE</span><h1>Ma collection<br /><em>BRICK.</em></h1><p>Retrouvez vos sets, suivez votre investissement et contrôlez votre collection depuis un seul espace.</p><div className="hero-actions"><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button><button className="button ghost" onClick={() => setInventoryOpen(true)}><ClipboardCheck /> Faire l’inventaire</button></div><div className="hero-summary"><span><strong>{summary.itemCount}</strong><small>EXEMPLAIRE{summary.itemCount > 1 ? 'S' : ''}</small></span><span><strong>{summary.totalParts.toLocaleString('fr-FR')}</strong><small>BRIQUES</small></span><span><span className="investment-amount"><strong>{euro.format(Number(summary.totalInvested))}</strong><span className="minifigure-investment">(dont {euro.format(Number(summary.minifigureInvested || 0))} de minifigurines)</span></span><small>INVESTIS</small></span></div></div>
         <div className="latest-set-panel">{latestSet ? <><div className="latest-set-head"><span>DERNIER AJOUT</span><button onClick={() => { setEditing(latestSet); setFormOpen(true) }}>Modifier <Pencil /></button></div><div className="latest-set-image">{latestSet.imageUrl ? <img src={latestSet.imageUrl} alt={`Boîte du set ${latestSet.name}`} /> : <Box />}</div><div className="latest-set-info"><small>{latestSet.brand} · {latestSet.theme || 'Sans thème'} · #{latestSet.setNumber}</small><strong>{latestSet.name}</strong><span>{Number(latestSet.totalInvested) > 0 ? euro.format(Number(latestSet.totalInvested)) : 'Reçu en cadeau'}</span></div></> : <><div className="latest-set-empty"><Box /><span>VOTRE PREMIER SET</span><strong>La collection commence ici.</strong><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button></div></>}</div>
@@ -223,7 +222,6 @@ function App() {
     {inventoryOpen && <InventoryModal onClose={() => setInventoryOpen(false)} onCompleted={inventoryCompleted} />}
     {trashOpen && <TrashModal onClose={() => setTrashOpen(false)} onRestored={async () => { notify('Élément restauré dans la collection.'); setMiniRefreshVersion((value) => value + 1); await load(query.trim()) }} />}
     {missingPartsSet?.brand === 'LEGO' && <MissingPartsModal set={missingPartsSet} onClose={() => { setMissingPartsSet(null); if (filters.incomplete) void load(query.trim()) }} onChange={(count, addedInvestment = 0) => { const updateSet = (item: LegoSet) => item.id === missingPartsSet.id ? { ...item, missingPartsCount: count, replacementCost: String(Number(item.replacementCost) + addedInvestment), totalInvested: String(Number(item.totalInvested) + addedInvestment) } : item; setSets((current) => current.map(updateSet)); setLatestSet((current) => current ? updateSet(current) : current); setMissingPartsSet((current) => current ? updateSet(current) : current); if (addedInvestment) setSummary((current) => ({ ...current, totalInvested: String(Number(current.totalInvested) + addedInvestment) })) }} />}
-    {pickABrickOpen && <PickABrickModal onClose={() => setPickABrickOpen(false)} />}
   </div>
 }
 
