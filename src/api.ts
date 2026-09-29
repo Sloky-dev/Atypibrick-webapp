@@ -78,7 +78,6 @@ export const collectionApi = {
   create: (payload: LegoSetPayload) => request<LegoSet>('/collection', { method: 'POST', body: JSON.stringify(payload) }),
   update: (id: string, payload: LegoSetPayload) => request<LegoSet>(`/collection/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   repairImage: (id: string) => request<LegoSet>(`/collection/${id}/image`, { method: 'POST' }),
-  removeMany: (ids: string[]) => request<void>('/collection/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) }),
   remove: (id: string) => request<void>(`/collection/${id}`, { method: 'DELETE' }),
 }
 
