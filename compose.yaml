@@ -1,0 +1,19 @@
+name: atypibrick-pilot
+services:
+  web:
+    image: atypik/atypibrick:${ATYPIBRICK_RELEASE:?Set ATYPIBRICK_RELEASE}
+    build: .
+    ports: ["127.0.0.1:18083:8080"]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.50
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
