@@ -10,6 +10,7 @@ export type MiniCollection = { series: MiniSeries[]; copies: MiniCopy[] }
 export const minifigureApi = {
   list: () => request<MiniCollection>('/minifigures'),
   standalone: (data: MiniCharacterInput) => request<MiniSeries>('/minifigures/standalone', { method: 'POST', body: JSON.stringify(data) }),
+  lookupSeries: (reference: string) => request<MiniSeriesInput>(`/minifigures/catalog/${encodeURIComponent(reference)}`),
   catalog: () => request<MiniSeriesInput[]>('/minifigures/catalog'),
   series: (data: MiniSeriesInput) => request<MiniSeries>('/minifigures/series', { method: 'POST', body: JSON.stringify(data) }),
   save: (data: MiniCopyInput, id?: string) => request<MiniCopy>(`/minifigures/copies${id ? `/${id}` : ''}`, { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) }),
