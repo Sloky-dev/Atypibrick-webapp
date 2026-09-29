@@ -75,7 +75,7 @@ export default function MinifiguresPage({ refreshVersion = 0 }: { refreshVersion
   const openCopy = (series: MiniSeries, characterId: string | null, copy?: MiniCopy) => setEditing({ series, form: copy || blankCopy(series.id, characterId), id: copy?.id })
   const addSeries = async (payload: MiniSeriesInput) => {
     setBusy(true); setFormError('')
-    try { const series = await minifigureApi.series(payload); await load(); setTabFilters((current) => ({ ...current, series: { search: '', selectedSeries: series.id, stateFilter: '' } })); setView('series'); setAddingSeries(false); setNotice({ message: 'Série ajoutée. Choisissez vos personnages.' }) }
+    try { const series = await minifigureApi.series(payload); await load(); setTabFilters((current) => ({ ...current, series: { search: '', selectedSeries: series.id, stateFilter: '' } })); setView('series'); setAddingSeries(false); setNotice({ message: data.series.some((existing) => existing.id === series.id) ? 'Cette série est déjà dans votre collection. Continuez à la compléter.' : 'Série ajoutée. Choisissez vos personnages.' }) }
     catch (reason) { setFormError(reasonText(reason)) } finally { setBusy(false) }
   }
   const remove = async (copy: MiniCopy) => {
