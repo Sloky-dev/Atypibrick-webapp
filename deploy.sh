@@ -1,102 +1,14 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+umask 022
 
-readonly MIN_NODE_20_MINOR=19
-readonly APP_DIR="${APP_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
-
-log() {
-  printf '\n\033[1;33m[Atypibrick]\033[0m %s\n' "$1"
-}
-
-fail() {
-  printf '\n\033[1;31m[Erreur]\033[0m %s\n' "$1" >&2
-  exit 1
-}
-
-command_exists() {
-  command -v "$1" >/dev/null 2>&1
-}
-
-on_error() {
-  printf '\n\033[1;31m[Erreur]\033[0m Déploiement interrompu à la ligne %s.\n' "$1" >&2
-}
-trap 'on_error "$LINENO"' ERR
-
-[[ -d "$APP_DIR" ]] || fail "Dossier introuvable : $APP_DIR"
-[[ -f "$APP_DIR/package.json" ]] || fail "package.json est absent de $APP_DIR"
-[[ -w "$APP_DIR" ]] || fail "Le dossier n'est pas modifiable par $(id -un). Lancez : sudo chown -R $(id -un):www-data '$APP_DIR'"
-[[ ! -e "$APP_DIR/node_modules" || -w "$APP_DIR/node_modules" ]] || fail "node_modules n'est pas modifiable. Lancez : sudo chown -R $(id -un):www-data '$APP_DIR/node_modules'"
-[[ ! -e "$APP_DIR/dist" || -w "$APP_DIR/dist" ]] || fail "dist n'est pas modifiable. Lancez : sudo chown -R $(id -un):www-data '$APP_DIR/dist'"
-
-command_exists git || fail "Git n'est pas installé (sudo apt install git)."
-command_exists node || fail "Node.js n'est pas installé. Installez Node.js 22 LTS."
-command_exists npm || fail "npm n'est pas installé. Installez Node.js 22 LTS avec npm."
-
-node_version="$(node --version | sed 's/^v//')"
-node_major="${node_version%%.*}"
-node_rest="${node_version#*.}"
-node_minor="${node_rest%%.*}"
-
-if (( node_major < 20 )) || (( node_major == 20 && node_minor < MIN_NODE_20_MINOR )) || (( node_major == 21 )); then
-  fail "Node.js $node_version est incompatible avec Vite 8. Utilisez Node.js 20.19+ ou 22.12+."
-fi
+APP_DIR="${APP_DIR:-/var/www/atypibrick_webapp}"
 
 cd "$APP_DIR"
-log "Environnement validé — Node.js $node_version, npm $(npm --version)"
-
-if [[ "${DEPLOY_PULL:-1}" == "1" ]]; then
-  if [[ -d .git ]]; then
-    log "Récupération des changements Git"
-    # Le script peut être rendu exécutable localement sur le VPS alors que le dépôt
-    # le versionne en 0644. Ignorer ce seul écart évite de bloquer les futurs pulls.
-    git config core.fileMode false
-    git pull --ff-only
-  else
-    log "Aucun dépôt Git local : étape git pull ignorée"
-  fi
+exec 9>"$(git rev-parse --git-dir)/atypibrick-deploy.lock"
+flock -n 9 || { echo 'Another Atypibrick deployment is running.'; exit 1; }
+if [[ -n $(git status --porcelain --untracked-files=no) ]]; then
+    echo 'STOP: preserve local tracked changes before deployment.'; exit 1
 fi
-
-if [[ ! -f .env.production ]]; then
-  log "Création de .env.production avec l'URL API par défaut"
-  printf '%s\n' 'VITE_API_URL=/api/atypibrick/v1' > .env.production
-fi
-
-log "Vérification des dépendances"
-if [[ ! -d node_modules ]] || ! npm ls --depth=0 >/dev/null 2>&1; then
-  if [[ -f package-lock.json ]]; then
-    log "Dépendances absentes ou incomplètes : installation propre avec npm ci"
-    npm ci
-  else
-    log "Aucun package-lock.json : installation avec npm install"
-    npm install
-  fi
-fi
-
-npm ls --depth=0 >/dev/null || fail "Certaines dépendances npm sont absentes ou invalides."
-
-log "Contrôle TypeScript et build de production"
-npm run build
-
-[[ -f dist/index.html ]] || fail "Le build est incomplet : dist/index.html est absent."
-[[ -d dist/assets ]] || fail "Le build est incomplet : dist/assets est absent."
-
-if command_exists nginx && command_exists systemctl; then
-  command_exists sudo || fail "sudo est requis pour recharger Nginx."
-  nginx_source="$APP_DIR/nginx/app.atypibrick.fr.conf"
-  nginx_target="/etc/nginx/sites-available/app.atypibrick.fr"
-  nginx_enabled="/etc/nginx/sites-enabled/app.atypibrick.fr"
-  if [[ -f "$nginx_source" && "${DEPLOY_NGINX_CONFIG:-1}" == "1" ]]; then
-    log "Installation de la configuration Nginx versionnée"
-    sudo install -o root -g root -m 0644 "$nginx_source" "$nginx_target"
-    if [[ ! -e "$nginx_enabled" ]]; then
-      sudo ln -s "$nginx_target" "$nginx_enabled"
-    fi
-  fi
-  log "Validation puis rechargement de Nginx"
-  sudo nginx -t
-  sudo systemctl reload nginx
-else
-  log "Nginx ou systemctl absent : rechargement ignoré"
-fi
-
-log "Déploiement terminé avec succès : $APP_DIR/dist"
+git pull --ff-only
+python3 docker/deploy.py

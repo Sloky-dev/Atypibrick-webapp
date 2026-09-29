@@ -1,12 +1,17 @@
 """Read-only HTTP checks of the actual frontend candidate."""
 import re
+import sys
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
 
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 18083
+if PORT not in (18083, 18084):
+    raise SystemExit("Unexpected candidate port")
+
 def get(path):
     try:
-        response = urlopen('http://127.0.0.1:18083' + path, timeout=10)
+        response = urlopen(f'http://127.0.0.1:{PORT}' + path, timeout=10)
     except HTTPError as error:
         response = error
     with response:

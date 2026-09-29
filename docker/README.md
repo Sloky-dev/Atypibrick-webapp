@@ -1,5 +1,12 @@
 # Pilote Docker Atypibrick
 
+Suite actuelle : site hôte rétabli, six permissions corrigées selon
+`atypibrick-public-_56lre63.txt`. La bascule et le nouveau déploiement Docker
+sont préparés dans [DEPLOYMENT.md](../DEPLOYMENT.md). Le `deploy.sh` du dépôt
+est désormais celui de Docker ; le récupérer sur le VPS avant bascule, mais
+l'exécuter seulement après celle-ci. Les instructions du pilote ci-dessous
+sont conservées comme historique.
+
 ## État du pilote reçu
 
 `atypibrick-pilot-SKKiEY.txt` confirme le candidat sain

@@ -1,0 +1,16 @@
+f: /var/www/atypibrick_webapp/dist/index.html
+drwxr-xr-x root   root     /
+drwxr-xr-x root   root     var
+drwxr-xr-x root   root     www
+drwxrwxr-x ubuntu www-data atypibrick_webapp
+drwxr-xr-x ubuntu www-data dist
+-rw------- ubuntu ubuntu   index.html
+Original modes and content hashes: /var/backups/atypik-migration/atypibrick-permissions-l7dc04og
+Permissions corrected: 6; contents and owners unchanged.
+Host HTTPS /: 200
+Host HTTPS /migration-spa-deep-link: 200
+Host HTTPS /assets/migration-missing.js: 404
+Host HTTPS /api/atypibrick/v1/auth/me: 401
+Host HTTPS /media/migration-missing.webp: 404
+Public Atypibrick HTTP: 200
+Static permissions repaired. No Nginx reload or Docker cutover performed.
