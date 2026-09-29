@@ -1,5 +1,22 @@
 # Pilote Docker Atypibrick
 
+## État du pilote reçu
+
+`atypibrick-pilot-SKKiEY.txt` confirme le candidat sain
+`atypik/atypibrick:pilot-0de38ac34169`, image
+`sha256:632666e1c231658ff22869624f50605eee150929b90af9405b4c3294b8345c21`.
+Les tests SPA, assets, cache et exclusions API/médias passent. Le vhost réel
+correspond à la référence. Cependant, la racine du site hôte répond 403 ;
+API /auth/me=401 et média absent=404, backend commun sain.
+
+Avant bascule, transférer `repair-public-permissions.py` vers `/home/ubuntu/`
+et exécuter `sudo python3 /home/ubuntu/repair-public-permissions.py`.
+Le script relève les permissions du chemin, sauvegarde les anciens modes,
+normalise uniquement `/var/www/atypibrick_webapp/dist` et contrôle les hashes
+et propriétaires inchangés. Il refuse les liens et montages dans ce dossier.
+Retourner le rapport `atypibrick-public-XXXXXX.txt`. Aucun vhost ni média partagé
+n'est modifié ; si le 403 persiste, analyser ce rapport avant toute bascule.
+
 Après validation du déploiement Docker Studio, préparer Atypibrick sur un
 port indépendant : `127.0.0.1:18083`. Les ports Studio 18081/18082 sont conservés.
 Le pilote ne modifie aucun vhost, backend, fichier média ou base de données.
