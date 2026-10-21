@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def run(*args, capture=False):
+    if args and args[0] == 'git':
+        args = ('git', '-c', f'safe.directory={ROOT}', *args[1:])
     return subprocess.run(args, check=True, text=True,
                           stdout=subprocess.PIPE if capture else None).stdout
 
@@ -90,7 +92,7 @@ def activate(image_id, snapshot, previous):
 def main():
     os.chdir(ROOT)
     if os.geteuid() != 0:
-        run('sudo', '-v')
+        os.execvp('sudo', ['sudo', sys.executable, '-I', '-B', str(Path(__file__).resolve())])
     current = inspect(PRODUCTION)
     if current['NetworkSettings']['Ports'].get('8080/tcp') != [
             {'HostIp': '127.0.0.1', 'HostPort': '18083'}]:
