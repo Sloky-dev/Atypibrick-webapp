@@ -10,7 +10,7 @@ et l'affichage d'images réelles restent à vérifier dans le navigateur.
 
 Le conteneur `atypibrick-pilot-web-1` sert désormais la production : ne pas
 l'arrêter comme un simple pilote. Pour publier après commit/push, utiliser
-`bash /var/www/atypibrick_webapp/deploy.sh`.
+`bash /srv/atypik/sources/atypibrick_webapp/deploy.sh`.
 
 Sauvegarde Nginx de cette bascule :
 `/var/backups/atypik-migration/atypibrick-cutover-79ovber3/vhost.original`.
@@ -32,7 +32,7 @@ sain. Avant bascule, commiter/pousser les nouveaux fichiers Docker et deploy.sh,
 puis sur le VPS, en utilisateur ubuntu :
 
 ```bash
-cd /var/www/atypibrick_webapp
+cd /srv/atypik/sources/atypibrick_webapp
 git pull --ff-only
 ```
 
@@ -53,7 +53,7 @@ connexion, collection et affichage des images réelles.
 
 ## Publications suivantes
 
-Après commit et push : `bash /var/www/atypibrick_webapp/deploy.sh` sur le VPS,
+Après commit et push : `bash /srv/atypik/sources/atypibrick_webapp/deploy.sh` sur le VPS,
 sans sudo. Le script effectue git pull et utilise sudo pour Docker. Il bloque
 les changements locaux suivis et les déploiements simultanés.
 
@@ -71,3 +71,5 @@ conteneur précédent intact. Aucun vhost n'est réinstallé lors des publicatio
 Validation locale : syntaxe, trois scénarios de publication/rollback simulés,
 transformation des trois locations et préservation des blocs API/médias. Le
 nouveau workflow de publication reste à valider par une exécution réelle VPS.
+
+Le checkout du VPS est sous `/srv/atypik/sources/atypibrick_webapp`. `deploy.sh` d?duit son emplacement ; les anciens scripts de bascule ne sont pas des commandes de d?ploiement courantes.

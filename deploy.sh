@@ -2,7 +2,8 @@
 set -Eeuo pipefail
 umask 022
 
-APP_DIR="${APP_DIR:-/var/www/atypibrick_webapp}"
+SCRIPT_DIR="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
+APP_DIR="${APP_DIR:-$SCRIPT_DIR}"
 
 cd "$APP_DIR"
 exec 9>"$(git rev-parse --git-dir)/atypibrick-deploy.lock"
