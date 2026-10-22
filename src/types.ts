@@ -8,6 +8,7 @@ export type LegoSet = {
   purchaseDate: string | null
   purchasePrice: string
   isGift: boolean
+  isGwp: boolean
   isSealed: boolean
   condition: 'Neuf' | 'Occasion'
   imageUrl: string | null
@@ -21,7 +22,7 @@ export type LegoSet = {
 
 export type LegoSetPayload = Omit<LegoSet, 'id' | 'name' | 'theme' | 'numParts' | 'imageUrl' | 'missingPartsCount' | 'replacementCost' | 'totalInvested' | 'createdAt' | 'updatedAt'>
 export type LegoSetPage = { items: LegoSet[]; hasMore: boolean; nextCursor: string | null }
-export type CollectionFilters = { incomplete: '' | 'true'; brand: '' | 'LEGO' | 'CaDA' | 'Jie Star' | 'Lumibricks' | 'MEGA' | 'Mattel Brick Shop'; theme: string; condition: string; gift: '' | 'true' | 'false'; purchaseDateFrom: string; purchaseDateTo: string; priceMin: string; priceMax: string; partsMin: string; partsMax: string; sort: 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'parts_asc' | 'parts_desc' | 'purchase_date_asc' | 'purchase_date_desc' }
+export type CollectionFilters = { incomplete: '' | 'true'; brand: '' | 'LEGO' | 'CaDA' | 'Jie Star' | 'Lumibricks' | 'MEGA' | 'Mattel Brick Shop'; theme: string; condition: string; gift: '' | 'true' | 'false' | 'gwp'; purchaseDateFrom: string; purchaseDateTo: string; priceMin: string; priceMax: string; partsMin: string; partsMax: string; sort: 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'parts_asc' | 'parts_desc' | 'purchase_date_asc' | 'purchase_date_desc' }
 export type CollectionBreakdownItem = { brands?: string[]; label: string; count: number }
 export type CollectionSummary = { setCount: number; itemCount: number; totalInvested: string; minifigureInvested?: string; totalParts: number; partsByBrand?: CollectionBreakdownItem[]; brands: CollectionBreakdownItem[]; themes: CollectionBreakdownItem[]; conditions: CollectionBreakdownItem[]; purchaseYears: CollectionBreakdownItem[] }
 export type LegoSetNameLookup = { setNumber: string; name: string; theme: string | null; numParts: number | null; imageUrl: string | null }

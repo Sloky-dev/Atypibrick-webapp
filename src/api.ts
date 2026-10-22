@@ -63,7 +63,11 @@ export const collectionApi = {
       if (filters.brand) params.set('brand', filters.brand)
       if (filters.theme) params.set('theme', filters.theme)
       if (filters.condition) params.set('condition', filters.condition)
-      if (filters.gift) params.set('isGift', filters.gift)
+      if (filters.gift === 'gwp') params.set('isGwp', 'true')
+      else if (filters.gift) {
+        params.set('isGift', filters.gift)
+        params.set('isGwp', 'false')
+      }
       if (filters.purchaseDateFrom) params.set('purchaseDateFrom', filters.purchaseDateFrom)
       if (filters.purchaseDateTo) params.set('purchaseDateTo', filters.purchaseDateTo)
       if (filters.priceMin) params.set('priceMin', filters.priceMin)

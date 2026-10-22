@@ -3,7 +3,7 @@ import { Check, LoaderCircle, X } from 'lucide-react'
 import { legoSetApi } from '../api'
 import type { LegoSet, LegoSetNameLookup, LegoSetPayload } from '../types'
 
-const emptyForm: LegoSetPayload = { brand: 'LEGO', setNumber: '', purchaseDate: null, purchasePrice: '0', isGift: false, isSealed: false, condition: 'Neuf', notes: '' }
+const emptyForm: LegoSetPayload = { brand: 'LEGO', setNumber: '', purchaseDate: null, purchasePrice: '0', isGift: false, isGwp: false, isSealed: false, condition: 'Neuf', notes: '' }
 
 type Props = { item: LegoSet | null; onClose: () => void; onSubmit: (payload: LegoSetPayload) => Promise<void> }
 
@@ -14,7 +14,7 @@ export function SetForm({ item, onClose, onSubmit }: Props) {
   const [resolvedSet, setResolvedSet] = useState<LegoSetNameLookup | null>(null)
   const [lookupError, setLookupError] = useState('')
   const [lookingUp, setLookingUp] = useState(false)
-  useEffect(() => { setForm(item ? { brand: item.brand, setNumber: item.setNumber, purchaseDate: item.purchaseDate, purchasePrice: item.purchasePrice, isGift: item.isGift, isSealed: item.isSealed, condition: item.condition, notes: item.notes } : emptyForm); setResolvedSet(item ? { setNumber: item.setNumber, name: item.name, theme: item.theme, numParts: item.numParts, imageUrl: item.imageUrl } : null) }, [item])
+  useEffect(() => { setForm(item ? { brand: item.brand, setNumber: item.setNumber, purchaseDate: item.purchaseDate, purchasePrice: item.purchasePrice, isGift: item.isGift, isGwp: item.isGwp ?? false, isSealed: item.isSealed, condition: item.condition, notes: item.notes } : emptyForm); setResolvedSet(item ? { setNumber: item.setNumber, name: item.name, theme: item.theme, numParts: item.numParts, imageUrl: item.imageUrl } : null) }, [item])
   useEffect(() => {
     const reference = form.setNumber.trim()
     const normalize = (value: string) => value.toLowerCase().replace(/-1$/, '')
@@ -45,8 +45,9 @@ export function SetForm({ item, onClose, onSubmit }: Props) {
         <label>Set identifié<div className={`resolved-set ${lookupError ? 'invalid' : resolvedSet ? 'valid' : ''}`}>{lookingUp ? <><LoaderCircle className="lookup-spinner" /> Recherche…</> : resolvedSet ? <><Check /> {resolvedSet.name}</> : lookupError || 'Saisissez une référence valide pour la marque sélectionnée'}</div></label>
         {resolvedSet && <div className="lookup-preview full"><div className="lookup-image">{resolvedSet.imageUrl ? <img src={resolvedSet.imageUrl} alt={`Boîte du set ${resolvedSet.setNumber}`} /> : <span>Image indisponible</span>}</div><div><small>INFORMATIONS DU SET</small><strong>{resolvedSet.name}</strong><p>{resolvedSet.theme || 'Thème non renseigné'}{resolvedSet.numParts ? ` · ${resolvedSet.numParts.toLocaleString('fr-FR')} pièces` : ''}</p></div></div>}
         <label>Condition d'achat<select value={form.condition} onChange={(e) => update('condition', e.target.value)}><option>Neuf</option><option>Occasion</option></select></label>
-        <label>Prix d'achat (€)<input required min="0" step="0.01" type="number" disabled={form.isGift} value={form.purchasePrice} onChange={(e) => update('purchasePrice', e.target.value)} /></label>
-        <label className="gift-option"><input type="checkbox" checked={form.isGift} onChange={(e) => setForm((current) => ({ ...current, isGift: e.target.checked, purchasePrice: e.target.checked ? '0' : current.purchasePrice }))} /><span><strong>Cadeau / Gift with purchase (GWP)</strong><small>Set offert, notamment avec un achat : prix d’achat à 0 €, sans ajout au montant investi.</small></span></label>
+        <label>Prix d'achat (€)<input required min="0" step="0.01" type="number" disabled={form.isGift || form.isGwp} value={form.purchasePrice} onChange={(e) => update('purchasePrice', e.target.value)} /></label>
+        <label className="gift-option"><input type="checkbox" checked={form.isGift} onChange={(e) => setForm((current) => ({ ...current, isGift: e.target.checked, isGwp: e.target.checked ? false : current.isGwp, purchasePrice: e.target.checked ? '0' : current.purchasePrice }))} /><span><strong>Cadeau</strong><small>Set reçu en cadeau : prix d’achat à 0 €.</small></span></label>
+        <label className="gift-option"><input type="checkbox" checked={form.isGwp} onChange={(e) => setForm((current) => ({ ...current, isGwp: e.target.checked, isGift: e.target.checked ? false : current.isGift, purchasePrice: e.target.checked ? '0' : current.purchasePrice }))} /><span><strong>Gift with purchase (GWP)</strong><small>Set offert avec un achat : prix d’achat à 0 €, sans ajout au montant investi.</small></span></label>
         <label className="gift-option"><input type="checkbox" checked={form.isSealed} onChange={(e) => setForm((current) => ({ ...current, isSealed: e.target.checked }))} /><span><strong>Set scellé</strong><small>La boîte est encore fermée avec ses scellés d’origine.</small></span></label>
         <label>Date d'achat<input type="date" value={form.purchaseDate || ''} onChange={(e) => update('purchaseDate', e.target.value || null)} /></label>
         <label className="full">Notes<textarea rows={3} placeholder="Lieu d'achat, état de la boîte…" value={form.notes} onChange={(e) => update('notes', e.target.value)} /></label>
