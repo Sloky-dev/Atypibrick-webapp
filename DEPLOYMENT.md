@@ -1,5 +1,16 @@
 # Déploiement Docker Atypibrick
 
+## Notices MOCs : limite de 50 Mio
+
+L'API et le formulaire acceptent 50 Mio par PDF. Sur le vhost Docker existant,
+exécuter une fois `sudo python3 -I -B docker/configure-moc-uploads.py` depuis
+le checkout du VPS. Le script sauvegarde le vhost, ajoute un proxy dédié aux
+routes `/api/atypibrick/v1/mocs` avec une limite de 51 Mio (enveloppe multipart),
+teste Nginx et recharge sa configuration. Les autres routes conservent 10 Mio.
+Il préserve les ports Docker, TLS et médias ; ne pas réinstaller le vhost
+statique historique. La commande est idempotente et restaure la configuration
+en cas d'échec.
+
 ## État actuel : bascule confirmée
 
 Le rapport `atypibrick-cutover-rb2bnp1a.txt` confirme que le frontend est servi

@@ -47,11 +47,11 @@ function MocForm({ item, onClose, onSaved }: { item: Moc | null; onClose: () => 
       }}><option value="">{item && !item.baseSetId ? `${item.baseSetBrand} · #${item.baseSetNumber} · ${item.baseSetName} (retiré de la collection)` : 'Choisir un set de ma collection'}</option>{choices.map((option) => <option key={option.id} value={option.id}>{option.brand} · #{option.setNumber} · {option.name}</option>)}</select></label>
       <div className="moc-form-help">{searching ? 'Recherche des sets…' : searchError ? <span role="alert">{searchError} <button type="button" onClick={() => setRetry((value) => value + 1)}>Réessayer</button></span> : !options.length ? 'Aucun set trouvé. Ajoutez un set à votre collection ou modifiez la recherche.' : 'Recherchez par nom ou numéro pour retrouver un autre set (50 résultats maximum).'}<p>Le set reste dans votre collection. Le MOC n’ajoute aucun montant investi.</p></div>
       <label>Date de construction<input type="date" value={form.builtAt || ''} onChange={(event) => setForm({ ...form, builtAt: event.target.value || null })} /></label>
-      <label className="full">Notice PDF (facultative, 9 Mo maximum)<input type="file" accept="application/pdf,.pdf" onChange={(event) => {
+      <label className="full">Notice PDF (facultative, 50 Mo maximum)<input type="file" accept="application/pdf,.pdf" onChange={(event) => {
         const file = event.target.files?.[0] || null
         setError('')
         if (file && (file.size > MAX_NOTICE_BYTES || !file.name.toLowerCase().endsWith('.pdf'))) {
-          setError('Choisissez une notice PDF de 9 Mo maximum.'); event.target.value = ''; setNotice(null); return
+          setError('Choisissez une notice PDF de 50 Mo maximum.'); event.target.value = ''; setNotice(null); return
         }
         setNotice(file)
         if (file) setForm({ ...form, removeInstruction: false })

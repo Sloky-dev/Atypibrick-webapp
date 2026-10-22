@@ -39,7 +39,7 @@ test('MOC creation, PDF download, editing and deletion on desktop and mobile', a
   await page.getByLabel('Set de base', { exact: true }).selectOption('base-1')
   await page.getByLabel('Date de construction').fill('2026-10-22')
   await page.getByLabel('Notes', { exact: true }).fill('Ma construction')
-  await page.getByLabel('Notice PDF', { exact: false }).setInputFiles({ name: 'notice.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF') })
+  await page.getByLabel('Notice PDF', { exact: false }).setInputFiles({ name: 'notice.pdf', mimeType: 'application/pdf', buffer: Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(9493 * 1024, 32), Buffer.from('\n%%EOF')]) })
   await page.getByRole('button', { name: 'Enregistrer le MOC' }).click()
   await expect(page.getByRole('alert')).toContainText('Enregistrement indisponible')
   await expect(page.getByLabel('Nom du MOC')).toHaveValue('Mon château')

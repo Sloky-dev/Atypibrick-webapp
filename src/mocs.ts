@@ -6,7 +6,7 @@ export type Moc = {
 }
 export type MocInput = { name: string; baseSetId: string | null; builtAt: string | null; notes: string; removeInstruction: boolean }
 export type MocBaseSet = { id: string; name: string; brand: string; setNumber: string }
-export const MAX_NOTICE_BYTES = 9 * 1024 * 1024
+export const MAX_NOTICE_BYTES = 50 * 1024 * 1024
 
 export const mocsApi = {
   list: () => request<Moc[]>('/mocs'),

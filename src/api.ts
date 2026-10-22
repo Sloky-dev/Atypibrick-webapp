@@ -46,7 +46,7 @@ export async function request<T>(path: string, init?: RequestInit, retry = true)
       : response.status === 401 ? 'Votre session a expiré. Reconnectez-vous.'
       : response.status === 403 ? 'Vous ne pouvez pas effectuer cette action.'
       : response.status === 404 ? 'Cet élément est introuvable. Actualisez la collection.'
-      : response.status === 413 ? 'Le fichier est trop volumineux. La notice PDF est limitée à 9 Mo.'
+      : response.status === 413 ? 'Le fichier est trop volumineux. La notice PDF est limitée à 50 Mo.'
       : response.status === 422 ? 'Certaines informations sont invalides. Vérifiez les champs du formulaire.'
       : response.status === 429 ? 'Trop de demandes. Patientez un instant avant de réessayer.'
       : 'L’action a échoué. Vérifiez les informations puis réessayez.'
