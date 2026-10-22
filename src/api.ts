@@ -31,7 +31,10 @@ async function refreshSession(): Promise<boolean> {
 
 export async function request<T>(path: string, init?: RequestInit, retry = true): Promise<T> {
   const token = localStorage.getItem(ACCESS_TOKEN_KEY)
-  const response = await fetch(`${API_URL}${path}`, { ...init, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init?.headers } }).catch(() => { throw new Error('Connexion au serveur interrompue. Vérifiez votre connexion puis réessayez. Si vous envoyiez une modification, vérifiez la collection avant de recommencer.') })
+  const headers = new Headers(init?.headers)
+  if (!(init?.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+  const response = await fetch(`${API_URL}${path}`, { ...init, credentials: 'include', headers }).catch(() => { throw new Error('Connexion au serveur interrompue. Vérifiez votre connexion puis réessayez. Si vous envoyiez une modification, vérifiez la collection avant de recommencer.') })
   if (!response.ok) {
     const body = await response.json().catch(() => null)
     if (response.status === 401 && path !== '/auth/login' && path !== '/auth/refresh') {
@@ -43,6 +46,7 @@ export async function request<T>(path: string, init?: RequestInit, retry = true)
       : response.status === 401 ? 'Votre session a expiré. Reconnectez-vous.'
       : response.status === 403 ? 'Vous ne pouvez pas effectuer cette action.'
       : response.status === 404 ? 'Cet élément est introuvable. Actualisez la collection.'
+      : response.status === 413 ? 'Le fichier est trop volumineux. La notice PDF est limitée à 9 Mo.'
       : response.status === 422 ? 'Certaines informations sont invalides. Vérifiez les champs du formulaire.'
       : response.status === 429 ? 'Trop de demandes. Patientez un instant avant de réessayer.'
       : 'L’action a échoué. Vérifiez les informations puis réessayez.'

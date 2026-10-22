@@ -12,6 +12,7 @@ import { MissingPartsModal } from './components/MissingPartsModal'
 import { PickABrickPage } from './components/PickABrickPage'
 import type { CollectionFilters, CollectionSummary, LegoSet, LegoSetPayload, User } from './types'
 
+const MocsPage = lazy(() => import('./components/MocsPage'))
 const MinifiguresPage = lazy(() => import('./components/MinifiguresPage'))
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
@@ -34,7 +35,7 @@ async function repairMissingImages(items: LegoSet[], onBatch: (items: LegoSet[])
 }
 
 function App() {
-  const [section, setSection] = useState<'sets' | 'minifigures' | 'pickabrick' | 'trash' | 'dashboard'>('sets')
+  const [section, setSection] = useState<'sets' | 'minifigures' | 'pickabrick' | 'trash' | 'dashboard' | 'mocs'>('sets')
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -181,6 +182,7 @@ function App() {
         <button type="button" className={section === 'minifigures' ? 'active' : ''} onClick={() => { setSection('minifigures'); setMenuOpen(false); window.scrollTo(0, 0) }}><UserRound /> Mes Minifigurines</button>
         <button type="button" className={section === 'pickabrick' ? 'active' : ''} onClick={() => { setSection('pickabrick'); setMenuOpen(false); window.scrollTo(0, 0) }}><Puzzle /> Pick a Brick</button>
         <button type="button" className={section === 'trash' ? 'active' : ''} onClick={() => { setSection('trash'); setMenuOpen(false); window.scrollTo(0, 0) }}><Trash2 /> Corbeille</button>
+        <button type="button" className={section === 'mocs' ? 'active' : ''} onClick={() => { setSection('mocs'); setMenuOpen(false); window.scrollTo(0, 0) }}><Box /> MOCs</button>
         <small>ATYPIBRICK</small>
         <a href="https://atypikbzh.fr/atypibrick/"><ExternalLink /> Découvrir l’univers</a>
       </nav>
@@ -190,7 +192,7 @@ function App() {
     <div className="page-shell">
     <header className="mobile-header"><a className="brand" href="#"><img src="/atypik-mark.svg" alt="" width="38" height="38" /><span><strong>ATYPIBRICK</strong><small>UN UNIVERS ATYPIK</small></span></a><button onClick={() => setMenuOpen(true)} aria-label="Ouvrir le menu"><Menu /></button></header>
     <main>
-      {section === 'dashboard' ? <DashboardPage onSelect={selectStatistic} /> : section === 'trash' ? <TrashPage onRestored={async () => { notify('Élément restauré dans la collection.'); setMiniRefreshVersion((value) => value + 1); await load(query.trim()) }} /> : section === 'pickabrick' ? <PickABrickPage /> : section === 'minifigures' ? <Suspense fallback={<p>Chargement des minifigurines…</p>}><MinifiguresPage refreshVersion={miniRefreshVersion} /></Suspense> : <>
+      {section === 'mocs' ? <Suspense fallback={<p>Chargement des MOCs...</p>}><MocsPage /></Suspense> : section === 'dashboard' ? <DashboardPage onSelect={selectStatistic} /> : section === 'trash' ? <TrashPage onRestored={async () => { notify('Élément restauré dans la collection.'); setMiniRefreshVersion((value) => value + 1); await load(query.trim()) }} /> : section === 'pickabrick' ? <PickABrickPage /> : section === 'minifigures' ? <Suspense fallback={<p>Chargement des minifigurines…</p>}><MinifiguresPage refreshVersion={miniRefreshVersion} /></Suspense> : <>
       <section className="hero dashboard-hero">
         <div className="hero-dashboard-copy"><span className="eyebrow">VUE D’ENSEMBLE</span><h1>Mes sets<br /><em>BRICK.</em></h1><p>Retrouvez vos sets, suivez votre investissement et contrôlez votre collection depuis un seul espace.</p><div className="hero-actions"><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button><button className="button ghost" onClick={() => setInventoryOpen(true)}><ClipboardCheck /> Faire l’inventaire</button></div><div className="hero-summary"><span><strong>{summary.itemCount}</strong><small>EXEMPLAIRE{summary.itemCount > 1 ? 'S' : ''}</small></span><span><strong>{summary.totalParts.toLocaleString('fr-FR')}</strong><small>BRIQUES</small></span><span><span className="investment-amount"><strong>{euro.format(Number(summary.totalInvested) - Number(summary.minifigureInvested || 0))}</strong><span className="minifigure-investment">(hors minifigurines)</span></span><small>INVESTIS</small></span></div></div>
         <div className="latest-set-panel">{latestSet ? <><div className="latest-set-head"><span>DERNIER AJOUT</span><button onClick={() => { setEditing(latestSet); setFormOpen(true) }}>Modifier <Pencil /></button></div><div className="latest-set-image">{latestSet.imageUrl ? <img src={latestSet.imageUrl} alt={`Boîte du set ${latestSet.name}`} /> : <Box />}</div><div className="latest-set-info"><small>{latestSet.brand} · {latestSet.theme || 'Sans thème'} · #{latestSet.setNumber}</small><strong>{latestSet.name}</strong><span>{Number(latestSet.totalInvested) > 0 ? euro.format(Number(latestSet.totalInvested)) : 'Reçu en cadeau'}</span></div></> : <><div className="latest-set-empty"><Box /><span>VOTRE PREMIER SET</span><strong>La collection commence ici.</strong><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button></div></>}</div>
