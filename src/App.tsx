@@ -180,9 +180,9 @@ function App() {
         <button type="button" className={section === 'dashboard' ? 'active' : ''} onClick={() => { setSection('dashboard'); setMenuOpen(false); window.scrollTo(0, 0) }}><LayoutGrid /> Dashboard</button>
         <a className={section === 'sets' ? 'active' : ''} href="#collection" onClick={() => { setSection('sets'); setMenuOpen(false) }}><Library /> Mes sets</a>
         <button type="button" className={section === 'minifigures' ? 'active' : ''} onClick={() => { setSection('minifigures'); setMenuOpen(false); window.scrollTo(0, 0) }}><UserRound /> Mes Minifigurines</button>
+        <button type="button" className={section === 'mocs' ? 'active' : ''} onClick={() => { setSection('mocs'); setMenuOpen(false); window.scrollTo(0, 0) }}><Box /> MOCs</button>
         <button type="button" className={section === 'pickabrick' ? 'active' : ''} onClick={() => { setSection('pickabrick'); setMenuOpen(false); window.scrollTo(0, 0) }}><Puzzle /> Pick a Brick</button>
         <button type="button" className={section === 'trash' ? 'active' : ''} onClick={() => { setSection('trash'); setMenuOpen(false); window.scrollTo(0, 0) }}><Trash2 /> Corbeille</button>
-        <button type="button" className={section === 'mocs' ? 'active' : ''} onClick={() => { setSection('mocs'); setMenuOpen(false); window.scrollTo(0, 0) }}><Box /> MOCs</button>
         <small>ATYPIBRICK</small>
         <a href="https://atypikbzh.fr/atypibrick/"><ExternalLink /> Découvrir l’univers</a>
       </nav>
