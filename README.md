@@ -53,3 +53,27 @@ Le Dashboard consomme uniquement `/minifigures/summary`. Les statistiques sont c
 Les séries utilisent `/minifigures/series` pour les définitions, quantités par personnage et progrès globaux. Mes figurines utilise `/minifigures/owned`, par lots de 24 cartes, avec recherche et filtres côté serveur. Ouvrir une carte charge au maximum 12 exemplaires via `/minifigures/copies` ; les suivants sont accessibles par « Charger plus d’exemplaires ». Les compteurs restent globaux, même si une seule page est affichée. La corbeille ne télécharge plus les exemplaires actifs pour retrouver les noms des personnages.
 
 Après une mutation, les compteurs et les pages sont actualisés. Les réponses liées à d’anciens filtres sont ignorées. Les tests Playwright vérifient les requêtes du Dashboard, la pagination des cartes et des exemplaires, les filtres de doublons et les compteurs globaux sur ordinateur et mobile.
+
+
+## Pages et navigation
+
+React Router fournit six pages accessibles directement, y compris après un rechargement :
+
+| Page | URL |
+| --- | --- |
+| Mes sets | `/sets` |
+| Dashboard | `/dashboard` |
+| Mes Minifigurines | `/minifigurines` |
+| MOCs | `/mocs` |
+| Pick a Brick | `/pick-a-brick` |
+| Corbeille | `/corbeille` |
+
+La racine redirige vers `/sets` en conservant les paramètres et l’ancre. Une URL inconnue affiche une page introuvable. La connexion conserve la page demandée. Le serveur doit servir `index.html` pour les routes applicatives ; les configurations Nginx du dépôt et le conteneur de production appliquent déjà ce comportement.
+
+Les recherches, tris et filtres des sets sont dans les paramètres d’URL, par exemple `/sets?brand=LEGO&theme=Star+Wars#collection`. Une sélection dans le Dashboard mène à cette URL. Modifier un filtre remplace l’entrée courante pour éviter une entrée d’historique à chaque frappe ; les changements de page créent des entrées et permettent les retours précédent/suivant. Les paramètres sont validés avant l’appel API.
+
+`App.tsx` assemble l’authentification, les routes et les fournisseurs partagés. `ApplicationLayout` contient la navigation et le compte ; `SetsPage` contient l’affichage des sets. `useSetsCollection` centralise la liste paginée, le dernier ajout global, la réparation des images et les actualisations après mutation. `useSetFilters` lit et écrit les filtres dans l’URL ; `useCollectionSummary` conserve les statistiques communes. Les requêtes de liste devenues inutiles sont annulées et les réponses obsolètes ignorées. Les autres pages ne chargent pas la liste des sets.
+
+`SetActionsProvider` partage les fenêtres d’ajout, de modification, d’inventaire et de pièces manquantes. `NotificationsProvider` gère les confirmations, erreurs et annulations de suppression ; ces dernières restent accessibles lorsqu’on change de page. Les pages et les fenêtres des sets sont chargées à la demande.
+
+Les tests `routing.spec.ts` couvrent les six liens directs, les rechargements, la connexion depuis un lien, les filtres partageables, l’historique et l’annulation après changement de page, sur ordinateur et mobile.

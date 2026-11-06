@@ -35,7 +35,7 @@ export async function request<T>(path: string, init?: RequestInit, retry = true)
   const headers = new Headers(init?.headers)
   if (!(init?.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `Bearer ${token}`)
-  const response = await fetch(`${API_URL}${path}`, { ...init, credentials: 'include', headers }).catch(() => { throw new Error('Connexion au serveur interrompue. Vérifiez votre connexion puis réessayez. Si vous envoyiez une modification, vérifiez la collection avant de recommencer.') })
+  const response = await fetch(`${API_URL}${path}`, { ...init, credentials: 'include', headers }).catch((reason) => { if (reason instanceof Error && reason.name === 'AbortError') throw reason; throw new Error('Connexion au serveur interrompue. Vérifiez votre connexion puis réessayez. Si vous envoyiez une modification, vérifiez la collection avant de recommencer.') })
   if (!response.ok) {
     const body = await response.json().catch(() => null)
     if (response.status === 401 && path !== '/auth/login' && path !== '/auth/refresh') {
@@ -60,7 +60,7 @@ export async function request<T>(path: string, init?: RequestInit, retry = true)
 }
 
 export const collectionApi = {
-  list: (query = '', cursor: string | null = null, limit = 9, filters?: CollectionFilters) => {
+  list: (query = '', cursor: string | null = null, limit = 9, filters?: CollectionFilters, signal?: AbortSignal) => {
     const params = new URLSearchParams({ limit: String(limit) })
     if (query) params.set('q', query)
     if (cursor) params.set('cursor', cursor)
@@ -82,7 +82,7 @@ export const collectionApi = {
       if (filters.partsMax) params.set('partsMax', filters.partsMax)
       params.set('sort', filters.sort)
     }
-    return request<LegoSetPage>(`/collection?${params}`)
+    return request<LegoSetPage>(`/collection?${params}`, { signal })
   },
   summary: () => request<CollectionSummary>('/collection/summary'),
   create: (payload: LegoSetPayload) => collectionMutation(request<LegoSet>('/collection', { method: 'POST', body: JSON.stringify(payload) })),

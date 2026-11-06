@@ -32,7 +32,7 @@ test('MOC creation, PDF download, editing and deletion on desktop and mobile', a
   await page.goto('/')
   const menu = page.getByRole('button', { name: 'Ouvrir le menu', exact: true })
   if (await menu.isVisible()) await menu.click()
-  await page.getByRole('button', { name: 'MOCs', exact: true }).click()
+  await page.getByRole('link', { name: 'MOCs', exact: true }).click()
   await expect(page.getByText('Vos briques ont plus d’une histoire')).toBeVisible()
   await page.getByRole('button', { name: 'Ajouter un MOC', exact: true }).click()
   await page.getByLabel('Nom du MOC').fill('Mon château')

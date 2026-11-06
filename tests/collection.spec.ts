@@ -57,7 +57,7 @@ test('statistics filter by raw brand and theme and can be cleared', async ({ pag
   const dashboard = async () => {
     const menu = page.getByRole('button', { name: 'Ouvrir le menu', exact: true })
     if (await menu.isVisible()) await menu.click()
-    await page.getByRole('button', { name: 'Dashboard', exact: true }).click()
+    await page.getByRole('link', { name: 'Dashboard', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Stats sets', exact: true })).toBeVisible()
     const miniStats = page.getByRole('region', { name: 'Stats minifigurines', exact: true })
     await expect(miniStats.locator('.mini-summary')).toContainText('5,00')

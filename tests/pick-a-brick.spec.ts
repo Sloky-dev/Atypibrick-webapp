@@ -16,7 +16,7 @@ test('Pick a Brick is a page with scrolling only for overflowing sets', async ({
   await page.goto('/')
   const menu = page.getByRole('button', { name: 'Ouvrir le menu', exact: true })
   if (await menu.isVisible()) await menu.click()
-  await page.getByRole('button', { name: 'Pick a Brick', exact: true }).click()
+  await page.getByRole('link', { name: 'Pick a Brick', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Pick a Brick.', exact: true })).toBeVisible()
   await expect(page.getByRole('dialog')).toHaveCount(0)
   const short = page.getByRole('region', { name: 'Pièces manquantes de Set 1', exact: true })

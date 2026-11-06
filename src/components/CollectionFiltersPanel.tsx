@@ -1,10 +1,7 @@
 import { RotateCcw, X } from 'lucide-react'
 import type { CollectionFilters, CollectionSummary } from '../types'
 
-export const emptyCollectionFilters: CollectionFilters = {
-  incomplete: '', brand: '', theme: '', condition: '', gift: '', purchaseDateFrom: '', purchaseDateTo: '',
-  priceMin: '', priceMax: '', partsMin: '', partsMax: '', sort: 'newest',
-}
+import { emptyCollectionFilters } from '../collectionFilters'
 
 type Props = { filters: CollectionFilters; summary: CollectionSummary; onChange: (filters: CollectionFilters) => void; onClose: () => void }
 
