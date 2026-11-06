@@ -44,3 +44,12 @@ La liste des sets et la synthèse globale sont chargées indépendamment. Les re
 Les clients API émettent `atypibrick:collection-changed` uniquement après la réussite d’une opération qui affecte la collection : création/modification/suppression/restauration de set, inventaire avec suppression des absents, ajout/suppression/remplacement de pièces ou mutation d’exemplaires de minifigurines. `useCollectionSummary` écoute cet événement pour relire la synthèse. Les actions échouées, la réparation d’une image et la simple consultation n’invalident pas les statistiques.
 
 Les réponses anciennes sont ignorées lorsqu’une actualisation plus récente a commencé. La synthèse est isolée par compte et vidée à la déconnexion ; une réponse tardive d’un ancien compte ne peut pas être affichée dans le nouveau. Un échec des statistiques possède son message et son bouton de relance indépendants de la liste.
+
+
+## Minifigurines : statistiques et pages
+
+Le Dashboard consomme uniquement `/minifigures/summary`. Les statistiques sont calculées côté serveur et ne dépendent pas des fiches chargées dans le navigateur. L’en-tête de Mes Minifigurines demande aussi la dernière fiche avec `includeLatest=true` ; il n’utilise pas une liste complète pour trouver le dernier ajout.
+
+Les séries utilisent `/minifigures/series` pour les définitions, quantités par personnage et progrès globaux. Mes figurines utilise `/minifigures/owned`, par lots de 24 cartes, avec recherche et filtres côté serveur. Ouvrir une carte charge au maximum 12 exemplaires via `/minifigures/copies` ; les suivants sont accessibles par « Charger plus d’exemplaires ». Les compteurs restent globaux, même si une seule page est affichée. La corbeille ne télécharge plus les exemplaires actifs pour retrouver les noms des personnages.
+
+Après une mutation, les compteurs et les pages sont actualisés. Les réponses liées à d’anciens filtres sont ignorées. Les tests Playwright vérifient les requêtes du Dashboard, la pagination des cartes et des exemplaires, les filtres de doublons et les compteurs globaux sur ordinateur et mobile.

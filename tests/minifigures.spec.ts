@@ -14,6 +14,8 @@ test('collect characters, duplicates, sealed boxes and restore an individual cop
   await page.route('**/api/atypibrick/v1/**', async (route) => {
     const path = new URL(route.request().url()).pathname.replace('/api/atypibrick/v1', '')
     const method = route.request().method()
+    const params = new URL(route.request().url()).searchParams
+    const active = copies.filter((copy) => !copy.deletedAt)
     const json = (value: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) })
     if (path === '/trash') return json(setInTrash ? [{ id: 'deleted-set', name: 'Set supprimé', setNumber: '123', imageUrl: null, deletedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 86400000).toISOString() }] : [])
     if (path === '/trash/deleted-set/restore') { setInTrash = false; return route.fulfill({ status: 204 }) }
@@ -23,7 +25,13 @@ test('collect characters, duplicates, sealed boxes and restore an individual cop
     if (path === '/minifigures/catalog/71048') return json({ ...catalog, name: 'Series 27', reference: '71048', theme: 'Series 27' })
     if (path === '/minifigures/catalog/99999') return json({ detail: 'Aucune série trouvée pour la référence 99999' }, 404)
     if (path === '/minifigures/catalog') return json([catalog])
-    if (path === '/minifigures') return json({ series, copies: copies.filter((copy) => !copy.deletedAt) })
+    if (path === '/minifigures/summary') return json({ copyCount: active.length, characterCount: new Set(active.filter((c) => c.characterId).map((c) => c.characterId)).size, duplicateCount: active.filter((c) => c.characterId).length - new Set(active.filter((c) => c.characterId).map((c) => c.characterId)).size, invested: String(active.reduce((total, c) => total + (c.isGift || c.includedInSet ? 0 : Number(c.purchasePrice)), 0)), bySeries: [], seriesProgress: [], conditions: [], purchaseYears: [], accessories: [], latestCopy: active.at(-1) || null })
+    if (path === '/minifigures/series' && method === 'GET') return json(series.map((s) => ({ ...s, copyCount: active.filter((c) => c.seriesId === s.id).length, ownedCount: new Set(active.filter((c) => c.seriesId === s.id && c.characterId).map((c) => c.characterId)).size, unknownCount: active.filter((c) => c.seriesId === s.id && !c.characterId).length, characters: s.characters.map((character) => ({ ...character, copyCount: active.filter((c) => c.characterId === character.id).length })) })))
+    if (path === '/minifigures/owned') {
+      const groups = series.flatMap((s) => [...s.characters.map((character) => ({ id: character.id, name: character.name })), { id: null, name: 'Personnage inconnu — boîte scellée' }].map((character) => ({ s, character, owned: active.filter((c) => c.seriesId === s.id && c.characterId === character.id) }))).filter(({ s, character, owned }) => owned.length && (!params.get('seriesId') || s.id === params.get('seriesId')) && `${s.name} ${s.reference} ${character.name}`.toLowerCase().includes((params.get('q') || '').toLowerCase()) && (!params.get('state') || (params.get('state') === 'duplicates' ? !!character.id && owned.length > 1 : params.get('state') === 'sealed' ? owned.some((c) => c.sealed) : owned.some((c) => !c.accessoriesComplete)))).map(({ s, character, owned }) => ({ seriesId: s.id, characterId: character.id, count: owned.length }))
+      return json({ items: groups, hasMore: false, nextCursor: null })
+    }
+    if (path === '/minifigures/copies' && method === 'GET') return json({ items: active.filter((c) => c.seriesId === params.get('seriesId') && c.characterId === (params.get('characterId') === 'unknown' ? null : params.get('characterId'))), hasMore: false, nextCursor: null })
     if (path === '/minifigures/series') { const payload = route.request().postDataJSON(); const id = `s${++sequence}`; const created = { ...payload, id, characters: payload.characters.map((character: object, i: number) => ({ ...character, id: `${id}-c${i}`, seriesId: id, imageUrl: `/media/atypibrick/minifigures/colshr-${i + 1}.webp?v=1` })) }; series.push(created); return json(created) }
     if (path === '/minifigures/standalone') { const payload = route.request().postDataJSON(); const id = `s${++sequence}`; const created = { id, name: 'Hors série', brand: 'LEGO', reference: null, theme: '', expectedCount: null, isStandalone: true, characters: [{ ...payload, id: `${id}-c0`, seriesId: id, imageUrl: null }] }; series.push(created); return json(created) }
     if (path === '/minifigures/copies') {

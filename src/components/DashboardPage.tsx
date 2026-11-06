@@ -1,40 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Box, CalendarDays, Palette, Puzzle, Tags, UserRound } from 'lucide-react'
-import { minifigureApi, type MiniCollection } from '../minifigures'
-import type { CollectionSummary, CollectionFilters, CollectionBreakdownItem } from '../types'
+import { minifigureApi, type MiniSummary } from '../minifigures'
+import type { CollectionSummary, CollectionFilters } from '../types'
 import { StatisticsBreakdown } from './StatisticsBreakdown'
 
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
-function breakdown(labels: string[]): CollectionBreakdownItem[] {
-  const counts = new Map<string, number>()
-  labels.forEach((label) => counts.set(label, (counts.get(label) || 0) + 1))
-  return [...counts].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
-}
-
 export function DashboardPage({ onSelect, summary, summaryError, onRetrySummary }: { onSelect: (filters: Partial<CollectionFilters>) => void; summary: CollectionSummary | null; summaryError: string; onRetrySummary: () => void }) {
-  const [data, setData] = useState<MiniCollection | null>(null)
+  const [data, setData] = useState<MiniSummary | null>(null)
   const [error, setError] = useState('')
   const [retry, setRetry] = useState(0)
   useEffect(() => {
     let active = true
     setError('')
-    minifigureApi.list().then((minis) => { if (active) setData(minis) }).catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : 'Chargement impossible') })
+    minifigureApi.summary().then((minis) => { if (active) setData(minis) }).catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : 'Chargement impossible') })
     return () => { active = false }
   }, [retry])
   const retryLoading = () => { if (summaryError) onRetrySummary(); if (error) setRetry((value) => value + 1) }
   const loadingError = summaryError || error
   if (!data || !summary) return <section className="dashboard-page"><div className="pick-page-heading"><h1>Dashboard</h1></div>{loadingError ? <div role="alert">{loadingError}<button className="button" onClick={retryLoading}>Réessayer</button></div> : <p role="status">Chargement des statistiques…</p>}</section>
   const minis = data
-  const copies = minis.copies.filter((copy) => !copy.deletedAt)
-  const characters = new Set(copies.filter((copy) => copy.characterId).map((copy) => copy.characterId))
-  const duplicates = copies.filter((copy) => copy.characterId).length - characters.size
-  const series = minis.series.filter((item) => !item.isStandalone)
-  const progress = series.map((item) => {
-    const owned = new Set(copies.filter((copy) => copy.seriesId === item.id && copy.characterId).map((copy) => copy.characterId)).size
-    const total = Math.max(item.expectedCount || 0, item.characters.length)
-    return total > 0 && owned >= total ? 'Complètes' : 'À compléter'
-  })
-  const invested = copies.reduce((total, copy) => total + (copy.isGift || copy.includedInSet ? 0 : Number(copy.purchasePrice)), 0)
   return <section className="dashboard-page">{loadingError && <div className="error" role="alert">{loadingError}<button onClick={retryLoading}>Réessayer les statistiques</button></div>}<div className="pick-page-heading"><span className="eyebrow">VUE D’ENSEMBLE</span><h1>Dashboard</h1><p>Les statistiques de vos sets et de vos minifigurines, réunies au même endroit.</p></div>
     <section aria-labelledby="set-stats-heading"><h2 id="set-stats-heading">Stats sets</h2><div className="mini-summary"><span><strong>{summary.itemCount}</strong><small>EXEMPLAIRES</small></span><span><strong>{summary.totalParts.toLocaleString('fr-FR')}</strong><small>BRIQUES</small></span><span><strong>{euro.format(Number(summary.totalInvested) - Number(summary.minifigureInvested || 0))}</strong><small>INVESTIS HORS MINIFIGURINES</small></span></div>
       <section className="stats breakdown-stats" id="stats">
@@ -45,13 +29,13 @@ export function DashboardPage({ onSelect, summary, summaryError, onRetrySummary 
         <StatisticsBreakdown title="ANNÉES D’ACHAT" subtitle="Chronologie de la collection" icon={<CalendarDays />} items={summary.purchaseYears} />
       </section>
     </section>
-    <section aria-labelledby="mini-stats-heading"><h2 id="mini-stats-heading">Stats minifigurines</h2><div className="mini-summary"><span><strong>{copies.length}</strong><small>EXEMPLAIRES</small></span><span><strong>{characters.size}</strong><small>PERSONNAGES</small></span><span><strong>{duplicates}</strong><small>DOUBLONS</small></span><span><strong>{euro.format(invested)}</strong><small>INVESTIS EN MINIFIGURINES</small></span></div>
+    <section aria-labelledby="mini-stats-heading"><h2 id="mini-stats-heading">Stats minifigurines</h2><div className="mini-summary"><span><strong>{minis.copyCount}</strong><small>EXEMPLAIRES</small></span><span><strong>{minis.characterCount}</strong><small>PERSONNAGES</small></span><span><strong>{minis.duplicateCount}</strong><small>DOUBLONS</small></span><span><strong>{euro.format(Number(minis.invested))}</strong><small>INVESTIS EN MINIFIGURINES</small></span></div>
     <div className="stats breakdown-stats">
-      <StatisticsBreakdown title="RÉPARTITION PAR SÉRIE" subtitle="Nombre d’exemplaires possédés" icon={<UserRound />} items={breakdown(copies.map((copy) => { const item = minis.series.find((s) => s.id === copy.seriesId); return item?.isStandalone ? 'Hors série' : item ? `${item.name}${item.reference ? ` · #${item.reference}` : ''}` : 'Série inconnue' }))} />
-      <StatisticsBreakdown title="PROGRESSION DES SÉRIES" subtitle="Séries ajoutées à votre collection" icon={<Puzzle />} items={breakdown(progress)} />
-      <StatisticsBreakdown title="CONDITIONS D’ACHAT" subtitle="Minifigurines neuves ou d’occasion" icon={<Tags />} items={breakdown(copies.map((copy) => copy.condition))} />
-      <StatisticsBreakdown title="ANNÉES D’ACHAT" subtitle="Chronologie des exemplaires" icon={<CalendarDays />} items={breakdown(copies.map((copy) => copy.purchaseDate?.slice(0, 4) || 'Non renseignée'))} />
-      <StatisticsBreakdown title="ACCESSOIRES" subtitle="Complétude des exemplaires" icon={<Box />} items={breakdown(copies.map((copy) => copy.accessoriesComplete ? 'Complets' : 'Incomplets'))} />
+      <StatisticsBreakdown title="RÉPARTITION PAR SÉRIE" subtitle="Nombre d’exemplaires possédés" icon={<UserRound />} items={minis.bySeries} />
+      <StatisticsBreakdown title="PROGRESSION DES SÉRIES" subtitle="Séries ajoutées à votre collection" icon={<Puzzle />} items={minis.seriesProgress} />
+      <StatisticsBreakdown title="CONDITIONS D’ACHAT" subtitle="Minifigurines neuves ou d’occasion" icon={<Tags />} items={minis.conditions} />
+      <StatisticsBreakdown title="ANNÉES D’ACHAT" subtitle="Chronologie des exemplaires" icon={<CalendarDays />} items={minis.purchaseYears} />
+      <StatisticsBreakdown title="ACCESSOIRES" subtitle="Complétude des exemplaires" icon={<Box />} items={minis.accessories} />
     </div></section>
   </section>
 }

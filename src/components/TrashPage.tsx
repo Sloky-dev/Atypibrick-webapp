@@ -15,10 +15,10 @@ export function TrashPage({ onRestored }: Props) {
   useEffect(() => {
     let active = true
     setError('')
-    Promise.all([trashApi.list(), minifigureApi.trash(), minifigureApi.list()]).then(([sets, copies, collection]) => {
+    Promise.all([trashApi.list(), minifigureApi.trash(), minifigureApi.seriesList()]).then(([sets, copies, collection]) => {
       const entries: TrashEntry[] = sets.map((item) => ({ id: item.id, kind: 'set', name: item.name, reference: `Set · #${item.setNumber}`, imageUrl: item.imageUrl, deletedAt: item.deletedAt, expiresAt: item.expiresAt }))
       for (const copy of copies) {
-        const series = collection.series.find((item) => item.id === copy.seriesId)
+        const series = collection.find((item) => item.id === copy.seriesId)
         const character = series?.characters.find((item) => item.id === copy.characterId)
         entries.push({ id: copy.id, kind: 'minifigure', name: character?.name || 'Personnage inconnu — boîte scellée', reference: `Minifigurine · ${series?.name || 'Série inconnue'}`, imageUrl: character?.imageUrl || null, deletedAt: copy.deletedAt!, expiresAt: null })
       }

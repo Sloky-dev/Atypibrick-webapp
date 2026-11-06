@@ -49,7 +49,7 @@ test('statistics filter by raw brand and theme and can be cleared', async ({ pag
     const json = (value: unknown) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(value) })
     if (url.pathname.endsWith('/auth/me')) return json({ email: 'test@example.org' })
     if (url.pathname.endsWith('/collection/summary')) { summaryRequests++; return json({ itemCount: 2, setCount: 2, totalParts: 100, totalInvested: '25', minifigureInvested: '5', brands, themes: [{ label: 'Star Wars', brands: ['LEGO'], count: 1 }], conditions: [], purchaseYears: [] }) }
-    if (url.pathname.endsWith('/minifigures')) return json({ series: [{ id: 's1', name: 'Test', reference: '71048', expectedCount: 2, characters: [{ id: 'c1' }, { id: 'c2' }] }], copies: [2, 3, 100].map((price, index) => ({ id: String(index), seriesId: 's1', characterId: 'c1', purchasePrice: String(price), isGift: index === 2, includedInSet: false, condition: 'Neuf', purchaseDate: null, accessoriesComplete: true, deletedAt: null })) })
+    if (url.pathname.endsWith('/minifigures/summary')) return json({ copyCount: 3, characterCount: 1, duplicateCount: 2, invested: '5', bySeries: [], seriesProgress: [], conditions: [], purchaseYears: [], accessories: [], latestCopy: null })
     if (url.pathname.endsWith('/missing-parts')) return json([])
     if (url.pathname.endsWith('/collection')) return json({ items: items.filter((item) => (!url.searchParams.get('incomplete') || item.missingPartsCount > 0) && (!url.searchParams.get('brand') || item.brand === url.searchParams.get('brand')) && (!url.searchParams.get('theme') || item.theme === url.searchParams.get('theme'))), hasMore: false, nextCursor: null })
     return route.fulfill({ status: 404, body: '{}' })
