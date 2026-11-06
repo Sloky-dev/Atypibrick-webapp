@@ -6,6 +6,7 @@ import { LoginPage } from './components/LoginPage'
 import { InventoryModal } from './components/InventoryModal'
 import { SetForm } from './components/SetForm'
 import { DashboardPage } from './components/DashboardPage'
+import { useCollectionSummary } from './hooks/useCollectionSummary'
 import { TrashPage } from './components/TrashPage'
 import { CollectionFiltersPanel, emptyCollectionFilters } from './components/CollectionFiltersPanel'
 import { MissingPartsModal } from './components/MissingPartsModal'
@@ -49,7 +50,8 @@ function App() {
   const [hasMore, setHasMore] = useState(false)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [summary, setSummary] = useState<CollectionSummary>({ setCount: 0, itemCount: 0, totalInvested: '0', totalParts: 0, brands: [], themes: [], conditions: [], purchaseYears: [] })
+  const { summary: summaryData, error: summaryError, reload: reloadSummary } = useCollectionSummary(user?.email ?? null)
+  const summary: CollectionSummary = summaryData ?? { setCount: 0, itemCount: 0, totalInvested: '0', totalParts: 0, brands: [], themes: [], conditions: [], purchaseYears: [] }
   const [query, setQuery] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [filters, setFilters] = useState<CollectionFilters>(emptyCollectionFilters)
@@ -88,9 +90,9 @@ function App() {
     const generation = ++listGeneration.current
     setLoading(true); setError('')
     try {
-      const [page, totals] = await Promise.all([collectionApi.list(search, null, PAGE_SIZE, filters), collectionApi.summary()])
+      const page = await collectionApi.list(search, null, PAGE_SIZE, filters)
       if (generation !== listGeneration.current) return
-      setSets(page.items); setHasMore(page.hasMore); setNextCursor(page.nextCursor); setSummary(totals)
+      setSets(page.items); setHasMore(page.hasMore); setNextCursor(page.nextCursor)
       if (!search) setLatestSet(page.items[0])
       repairImagesInBackground(page.items, generation)
     } catch (e) {
@@ -192,7 +194,8 @@ function App() {
     <div className="page-shell">
     <header className="mobile-header"><a className="brand" href="#"><img src="/atypik-mark.svg" alt="" width="38" height="38" /><span><strong>ATYPIBRICK</strong><small>UN UNIVERS ATYPIK</small></span></a><button onClick={() => setMenuOpen(true)} aria-label="Ouvrir le menu"><Menu /></button></header>
     <main>
-      {section === 'mocs' ? <Suspense fallback={<p>Chargement des MOCs...</p>}><MocsPage /></Suspense> : section === 'dashboard' ? <DashboardPage onSelect={selectStatistic} /> : section === 'trash' ? <TrashPage onRestored={async () => { notify('Élément restauré dans la collection.'); setMiniRefreshVersion((value) => value + 1); await load(query.trim()) }} /> : section === 'pickabrick' ? <PickABrickPage /> : section === 'minifigures' ? <Suspense fallback={<p>Chargement des minifigurines…</p>}><MinifiguresPage refreshVersion={miniRefreshVersion} /></Suspense> : <>
+      {section === 'mocs' ? <Suspense fallback={<p>Chargement des MOCs...</p>}><MocsPage /></Suspense> : section === 'dashboard' ? <DashboardPage onSelect={selectStatistic} summary={summaryData} summaryError={summaryError} onRetrySummary={reloadSummary} /> : section === 'trash' ? <TrashPage onRestored={async () => { notify('Élément restauré dans la collection.'); setMiniRefreshVersion((value) => value + 1); await load(query.trim()) }} /> : section === 'pickabrick' ? <PickABrickPage /> : section === 'minifigures' ? <Suspense fallback={<p>Chargement des minifigurines…</p>}><MinifiguresPage refreshVersion={miniRefreshVersion} /></Suspense> : <>
+      {summaryError && <div className="error" role="alert"><span>Impossible d’actualiser les statistiques. {summaryError}</span><button onClick={reloadSummary}>Réessayer les statistiques</button></div>}
       <section className="hero dashboard-hero">
         <div className="hero-dashboard-copy"><span className="eyebrow">VUE D’ENSEMBLE</span><h1>Mes sets<br /><em>BRICK.</em></h1><p>Retrouvez vos sets, suivez votre investissement et contrôlez votre collection depuis un seul espace.</p><div className="hero-actions"><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button><button className="button ghost" onClick={() => setInventoryOpen(true)}><ClipboardCheck /> Faire l’inventaire</button></div><div className="hero-summary"><span><strong>{summary.itemCount}</strong><small>EXEMPLAIRE{summary.itemCount > 1 ? 'S' : ''}</small></span><span><strong>{summary.totalParts.toLocaleString('fr-FR')}</strong><small>BRIQUES</small></span><span><span className="investment-amount"><strong>{euro.format(Number(summary.totalInvested) - Number(summary.minifigureInvested || 0))}</strong><span className="minifigure-investment">(hors minifigurines)</span></span><small>INVESTIS</small></span></div></div>
         <div className="latest-set-panel">{latestSet ? <><div className="latest-set-head"><span>DERNIER AJOUT</span><button onClick={() => { setEditing(latestSet); setFormOpen(true) }}>Modifier <Pencil /></button></div><div className="latest-set-image">{latestSet.imageUrl ? <img src={latestSet.imageUrl} alt={`Boîte du set ${latestSet.name}`} /> : <Box />}</div><div className="latest-set-info"><small>{latestSet.brand} · {latestSet.theme || 'Sans thème'} · #{latestSet.setNumber}</small><strong>{latestSet.name}</strong><span>{Number(latestSet.totalInvested) > 0 ? euro.format(Number(latestSet.totalInvested)) : 'Reçu en cadeau'}</span></div></> : <><div className="latest-set-empty"><Box /><span>VOTRE PREMIER SET</span><strong>La collection commence ici.</strong><button className="button primary" onClick={openCreate}><PackagePlus /> Ajouter un set</button></div></>}</div>
@@ -217,7 +220,7 @@ function App() {
     {formOpen && <SetForm item={editing} onClose={() => setFormOpen(false)} onSubmit={save} />}
     {accountOpen && <AccountModal user={user} onClose={() => setAccountOpen(false)} />}
     {inventoryOpen && <InventoryModal onClose={() => setInventoryOpen(false)} onCompleted={inventoryCompleted} />}
-    {missingPartsSet?.brand === 'LEGO' && <MissingPartsModal set={missingPartsSet} onClose={() => { setMissingPartsSet(null); if (filters.incomplete) void load(query.trim()) }} onChange={(count, addedInvestment = 0) => { const updateSet = (item: LegoSet) => item.id === missingPartsSet.id ? { ...item, missingPartsCount: count, replacementCost: String(Number(item.replacementCost) + addedInvestment), totalInvested: String(Number(item.totalInvested) + addedInvestment) } : item; setSets((current) => current.map(updateSet)); setLatestSet((current) => current ? updateSet(current) : current); setMissingPartsSet((current) => current ? updateSet(current) : current); if (addedInvestment) setSummary((current) => ({ ...current, totalInvested: String(Number(current.totalInvested) + addedInvestment) })) }} />}
+    {missingPartsSet?.brand === 'LEGO' && <MissingPartsModal set={missingPartsSet} onClose={() => { setMissingPartsSet(null); if (filters.incomplete) void load(query.trim()) }} onChange={(count, addedInvestment = 0) => { const updateSet = (item: LegoSet) => item.id === missingPartsSet.id ? { ...item, missingPartsCount: count, replacementCost: String(Number(item.replacementCost) + addedInvestment), totalInvested: String(Number(item.totalInvested) + addedInvestment) } : item; setSets((current) => current.map(updateSet)); setLatestSet((current) => current ? updateSet(current) : current); setMissingPartsSet((current) => current ? updateSet(current) : current); }} />}
   </div>
 }
 

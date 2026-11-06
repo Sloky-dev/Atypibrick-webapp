@@ -1,3 +1,4 @@
+import { collectionMutation } from './collectionEvents'
 import type { CollectionFilters, CollectionSummary, InventoryOverview, InventorySession, LegoSet, LegoSetNameLookup, LegoSetPage, LegoSetPayload, LoginResponse, MissingPart, MissingPartsSetSummary, PickABrickPart, TokenPair, TrashItem, User } from './types'
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api/atypibrick/v1').replace(/\/$/, '')
@@ -84,10 +85,10 @@ export const collectionApi = {
     return request<LegoSetPage>(`/collection?${params}`)
   },
   summary: () => request<CollectionSummary>('/collection/summary'),
-  create: (payload: LegoSetPayload) => request<LegoSet>('/collection', { method: 'POST', body: JSON.stringify(payload) }),
-  update: (id: string, payload: LegoSetPayload) => request<LegoSet>(`/collection/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  create: (payload: LegoSetPayload) => collectionMutation(request<LegoSet>('/collection', { method: 'POST', body: JSON.stringify(payload) })),
+  update: (id: string, payload: LegoSetPayload) => collectionMutation(request<LegoSet>(`/collection/${id}`, { method: 'PUT', body: JSON.stringify(payload) })),
   repairImage: (id: string) => request<LegoSet>(`/collection/${id}/image`, { method: 'POST' }),
-  remove: (id: string) => request<void>(`/collection/${id}`, { method: 'DELETE' }),
+  remove: (id: string) => collectionMutation(request<void>(`/collection/${id}`, { method: 'DELETE' })),
 }
 
 export const legoSetApi = {
@@ -98,22 +99,22 @@ export const inventoryApi = {
   overview: () => request<InventoryOverview>('/inventory'),
   start: () => request<InventorySession>('/inventory', { method: 'POST' }),
   markPresent: (sessionId: string, itemId: string, present: boolean) => request<InventorySession>(`/inventory/${sessionId}/items/${itemId}`, { method: 'PUT', body: JSON.stringify({ present }) }),
-  complete: (sessionId: string, deleteMissing: boolean) => request<InventorySession>(`/inventory/${sessionId}/complete`, { method: 'POST', body: JSON.stringify({ deleteMissing }) }),
+  complete: (sessionId: string, deleteMissing: boolean) => { const operation = request<InventorySession>(`/inventory/${sessionId}/complete`, { method: 'POST', body: JSON.stringify({ deleteMissing }) }); return deleteMissing ? collectionMutation(operation) : operation },
 }
 
 export const trashApi = {
   list: () => request<TrashItem[]>('/trash'),
-  restore: (id: string) => request<void>(`/trash/${id}/restore`, { method: 'POST' }),
+  restore: (id: string) => collectionMutation(request<void>(`/trash/${id}/restore`, { method: 'POST' })),
 }
 
 export const missingPartsApi = {
   overview: () => request<MissingPartsSetSummary[]>('/parts'),
   lookup: (reference: string) => request<PickABrickPart[]>(`/parts/lookup?reference=${encodeURIComponent(reference)}`),
   list: (setId: string) => request<MissingPart[]>(`/parts/sets/${setId}`),
-  add: (setId: string, elementId: string, quantity: number) => request<MissingPart>(`/parts/sets/${setId}`, { method: 'POST', body: JSON.stringify({ elementId, quantity }) }),
+  add: (setId: string, elementId: string, quantity: number) => collectionMutation(request<MissingPart>(`/parts/sets/${setId}`, { method: 'POST', body: JSON.stringify({ elementId, quantity }) })),
   refresh: (id: string) => request<MissingPart>(`/parts/${id}/refresh`, { method: 'POST' }),
-  replace: (id: string, price: number) => request<MissingPart>(`/parts/${id}/replace`, { method: 'POST', body: JSON.stringify({ price }) }),
-  remove: (id: string) => request<void>(`/parts/${id}`, { method: 'DELETE' }),
+  replace: (id: string, price: number) => collectionMutation(request<MissingPart>(`/parts/${id}/replace`, { method: 'POST', body: JSON.stringify({ price }) })),
+  remove: (id: string) => collectionMutation(request<void>(`/parts/${id}`, { method: 'DELETE' })),
 }
 
 export const authApi = {

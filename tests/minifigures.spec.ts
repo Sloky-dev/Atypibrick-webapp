@@ -6,6 +6,7 @@ test('collect characters, duplicates, sealed boxes and restore an individual cop
   page.on('pageerror', (error) => errors.push(error.message))
   let series: MiniSeries[] = []
   let copies: MiniCopy[] = []
+  let summaryRequests = 0
   let sequence = 0
   let failSave = false
   let setInTrash = true
@@ -18,7 +19,7 @@ test('collect characters, duplicates, sealed boxes and restore an individual cop
     if (path === '/trash/deleted-set/restore') { setInTrash = false; return route.fulfill({ status: 204 }) }
     if (path === '/auth/me') return json({ email: 'test@example.org' })
     if (path === '/collection') return json({ items: [], nextCursor: null, hasMore: false })
-    if (path === '/collection/summary') return json({ itemCount: 0, setCount: 0, totalParts: 0, totalInvested: '0', brands: [], themes: [], conditions: [], purchaseYears: [] })
+    if (path === '/collection/summary') { summaryRequests++; return json({ itemCount: 0, setCount: 0, totalParts: 0, totalInvested: '0', brands: [], themes: [], conditions: [], purchaseYears: [] }) }
     if (path === '/minifigures/catalog/71048') return json({ ...catalog, name: 'Series 27', reference: '71048', theme: 'Series 27' })
     if (path === '/minifigures/catalog/99999') return json({ detail: 'Aucune série trouvée pour la référence 99999' }, 404)
     if (path === '/minifigures/catalog') return json([catalog])
@@ -56,9 +57,11 @@ test('collect characters, duplicates, sealed boxes and restore an individual cop
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('Le serveur rencontre un problème')
   await expect(page.getByLabel('Prix d’achat (€)')).toHaveValue('3.99')
+  expect(summaryRequests).toBe(1)
   failSave = false
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
   await expect(page.getByText('1/12 personnages · 1 exemplaires')).toBeVisible()
+  await expect.poll(() => summaryRequests).toBe(2)
   await shrek.click()
   await page.getByLabel('Prix d’achat (€)').fill('5.00')
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()

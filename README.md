@@ -35,3 +35,12 @@ temporairement la configuration déjà installée sur le VPS :
 ```bash
 DEPLOY_NGINX_CONFIG=0 ./deploy.sh
 ```
+
+
+## Chargement des statistiques
+
+La liste des sets et la synthèse globale sont chargées indépendamment. Les recherches, filtres, tris, pages suivantes et changements d’écran ne rappellent pas `/collection/summary`. `App` conserve la synthèse en mémoire pour la session et la partage avec le Dashboard ; elle n’est pas enregistrée dans le stockage du navigateur.
+
+Les clients API émettent `atypibrick:collection-changed` uniquement après la réussite d’une opération qui affecte la collection : création/modification/suppression/restauration de set, inventaire avec suppression des absents, ajout/suppression/remplacement de pièces ou mutation d’exemplaires de minifigurines. `useCollectionSummary` écoute cet événement pour relire la synthèse. Les actions échouées, la réparation d’une image et la simple consultation n’invalident pas les statistiques.
+
+Les réponses anciennes sont ignorées lorsqu’une actualisation plus récente a commencé. La synthèse est isolée par compte et vidée à la déconnexion ; une réponse tardive d’un ancien compte ne peut pas être affichée dans le nouveau. Un échec des statistiques possède son message et son bouton de relance indépendants de la liste.

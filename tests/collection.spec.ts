@@ -38,6 +38,7 @@ test('collection remains usable and retired room data is cleared', async ({ page
 
 
 test('statistics filter by raw brand and theme and can be cleared', async ({ page }) => {
+  let summaryRequests = 0
   const items = [
     { id: '1', name: 'Falcon', brand: 'LEGO', theme: 'Star Wars' },
     { id: '2', name: 'Dinosaur', brand: 'Jie Star', theme: 'Dinosaures' },
@@ -47,7 +48,7 @@ test('statistics filter by raw brand and theme and can be cleared', async ({ pag
     const url = new URL(route.request().url())
     const json = (value: unknown) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(value) })
     if (url.pathname.endsWith('/auth/me')) return json({ email: 'test@example.org' })
-    if (url.pathname.endsWith('/collection/summary')) return json({ itemCount: 2, setCount: 2, totalParts: 100, totalInvested: '25', minifigureInvested: '5', brands, themes: [{ label: 'Star Wars', brands: ['LEGO'], count: 1 }], conditions: [], purchaseYears: [] })
+    if (url.pathname.endsWith('/collection/summary')) { summaryRequests++; return json({ itemCount: 2, setCount: 2, totalParts: 100, totalInvested: '25', minifigureInvested: '5', brands, themes: [{ label: 'Star Wars', brands: ['LEGO'], count: 1 }], conditions: [], purchaseYears: [] }) }
     if (url.pathname.endsWith('/minifigures')) return json({ series: [{ id: 's1', name: 'Test', reference: '71048', expectedCount: 2, characters: [{ id: 'c1' }, { id: 'c2' }] }], copies: [2, 3, 100].map((price, index) => ({ id: String(index), seriesId: 's1', characterId: 'c1', purchasePrice: String(price), isGift: index === 2, includedInSet: false, condition: 'Neuf', purchaseDate: null, accessoriesComplete: true, deletedAt: null })) })
     if (url.pathname.endsWith('/missing-parts')) return json([])
     if (url.pathname.endsWith('/collection')) return json({ items: items.filter((item) => (!url.searchParams.get('incomplete') || item.missingPartsCount > 0) && (!url.searchParams.get('brand') || item.brand === url.searchParams.get('brand')) && (!url.searchParams.get('theme') || item.theme === url.searchParams.get('theme'))), hasMore: false, nextCursor: null })
@@ -72,6 +73,9 @@ test('statistics filter by raw brand and theme and can be cleared', async ({ pag
   await page.getByLabel('Fermer', { exact: true }).click()
   await page.getByRole('button', { name: 'Effacer les filtres', exact: true }).click()
   await expect(page.locator('.set-card')).toHaveCount(2)
+  const searched = page.waitForResponse((response) => new URL(response.url()).searchParams.get('q') === 'Falcon')
+  await page.getByRole('textbox', { name: 'Rechercher', exact: true }).fill('Falcon')
+  await searched
   await dashboard()
   await page.getByRole('button', { name: 'Filtrer : LEGO', exact: true }).click()
   await expect(page.locator('.set-card')).toHaveCount(1)
@@ -93,10 +97,12 @@ test('statistics filter by raw brand and theme and can be cleared', async ({ pag
   await page.getByRole('button', { name: 'Effacer les filtres', exact: true }).click()
   await expect(page.locator('.set-card')).toHaveCount(2)
   await expect(page.getByRole('button', { name: 'Effacer les filtres', exact: true })).toHaveCount(0)
+  expect(summaryRequests).toBe(1)
 })
 
 
 test('save feedback and deletion undo handle failures without losing data', async ({ page }) => {
+  let summaryRequests = 0
   let deleted = false
   let failSave = true
   let failRestore = true
@@ -107,7 +113,7 @@ test('save feedback and deletion undo handle failures without losing data', asyn
     const path = new URL(route.request().url()).pathname
     const json = (value: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) })
     if (path.endsWith('/auth/me')) return json({ email: 'test@example.org' })
-    if (path.endsWith('/collection/summary')) return json({ itemCount: deleted ? 0 : 1, setCount: 1, totalParts: 100, totalInvested: '50', brands: [], themes: [], conditions: [], purchaseYears: [] })
+    if (path.endsWith('/collection/summary')) { summaryRequests++; return json({ itemCount: deleted ? 0 : 1, setCount: 1, totalParts: 100, totalInvested: '50', brands: [], themes: [], conditions: [], purchaseYears: [] }) }
     if (path.endsWith('/collection/set-1') && route.request().method() === 'PUT') {
       if (failSave) return json({ detail: [{ loc: ['body', 'purchasePrice'], msg: 'invalid' }] }, 422)
       return json(item)
@@ -126,16 +132,21 @@ test('save feedback and deletion undo handle failures without losing data', asyn
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('Certaines informations sont invalides')
   await expect(page.getByLabel('Notes')).toHaveValue('Texte conservé')
+  expect(summaryRequests).toBe(1)
   failSave = false
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
   await expect(page.getByRole('status')).toContainText('Modifications enregistrées')
+  await expect.poll(() => summaryRequests).toBe(2)
   await page.locator('.set-card').getByRole('button', { name: 'Supprimer', exact: true }).click()
   await expect(page.locator('.set-card')).toHaveCount(0)
+  await expect.poll(() => summaryRequests).toBe(3)
   await page.getByRole('button', { name: 'Annuler la suppression', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('Le serveur rencontre un problème')
+  expect(summaryRequests).toBe(3)
   failRestore = false
   await page.getByRole('button', { name: 'Annuler la suppression', exact: true }).click()
   await expect(page.locator('.set-card')).toHaveCount(1)
+  await expect.poll(() => summaryRequests).toBe(4)
   await expect(page.getByText('Suppression annulée. Le set a été restauré.', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Annuler la suppression', exact: true })).toHaveCount(0)
   await expect(page.getByText('Suppression annulée. Le set a été restauré.', { exact: true })).toHaveCount(0, { timeout: 7000 })

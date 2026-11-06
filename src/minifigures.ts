@@ -1,3 +1,4 @@
+import { collectionMutation } from './collectionEvents'
 import { request } from './api'
 
 export type MiniCharacterInput = { name: string; catalogReference: string | null }
@@ -13,8 +14,8 @@ export const minifigureApi = {
   lookupSeries: (reference: string) => request<MiniSeriesInput>(`/minifigures/catalog/${encodeURIComponent(reference)}`),
   catalog: () => request<MiniSeriesInput[]>('/minifigures/catalog'),
   series: (data: MiniSeriesInput) => request<MiniSeries>('/minifigures/series', { method: 'POST', body: JSON.stringify(data) }),
-  save: (data: MiniCopyInput, id?: string) => request<MiniCopy>(`/minifigures/copies${id ? `/${id}` : ''}`, { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) }),
-  remove: (id: string) => request<void>(`/minifigures/copies/${id}`, { method: 'DELETE' }),
-  restore: (id: string) => request<MiniCopy>(`/minifigures/copies/${id}/restore`, { method: 'POST' }),
+  save: (data: MiniCopyInput, id?: string) => collectionMutation(request<MiniCopy>(`/minifigures/copies${id ? `/${id}` : ''}`, { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) })),
+  remove: (id: string) => collectionMutation(request<void>(`/minifigures/copies/${id}`, { method: 'DELETE' })),
+  restore: (id: string) => collectionMutation(request<MiniCopy>(`/minifigures/copies/${id}/restore`, { method: 'POST' })),
   trash: () => request<MiniCopy[]>('/minifigures/trash'),
 }
