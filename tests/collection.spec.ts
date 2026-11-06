@@ -142,3 +142,27 @@ test('save feedback and deletion undo handle failures without losing data', asyn
   await expect(page.getByRole('alert')).toHaveCount(0, { timeout: 7000 })
   expect(errors).toEqual([])
 })
+
+
+test('set lookup distinguishes unavailable catalogue from unknown reference', async ({ page }) => {
+  await page.route('**/api/atypibrick/v1/**', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/auth/me')) return route.fulfill({ json: { email: 'test@example.org' } })
+    if (url.pathname.endsWith('/collection/summary')) return route.fulfill({ json: { itemCount: 0, setCount: 0, totalParts: 0, totalInvested: '0', brands: [], themes: [], conditions: [], purchaseYears: [] } })
+    if (url.pathname.endsWith('/collection')) return route.fulfill({ json: { items: [], hasMore: false, nextCursor: null } })
+    if (url.pathname.endsWith('/sets/lookup')) {
+      if (url.searchParams.get('setNumber') === '57038') return route.fulfill({ status: 503, json: { detail: { code: 'catalog_unavailable', message: 'Provider unavailable' } } })
+      return route.fulfill({ status: 404, json: { detail: 'Aucun set Jie Star trouvé pour la référence 99999' } })
+    }
+    return route.fulfill({ status: 404, json: {} })
+  })
+  await page.goto('/')
+  await page.locator('.hero-actions').getByRole('button', { name: 'Ajouter un set', exact: true }).click()
+  const dialog = page.locator('form.modal')
+  await page.getByRole('combobox', { name: 'Marque', exact: true }).selectOption('Jie Star')
+  await dialog.getByLabel('Numéro du set', { exact: true }).fill('57038')
+  await expect(dialog.getByText('Le catalogue de cette marque est temporairement indisponible. Réessayez dans quelques instants.', { exact: true })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Ajouter à ma collection', exact: true })).toBeDisabled()
+  await dialog.getByLabel('Numéro du set', { exact: true }).fill('99999')
+  await expect(dialog.getByText('Aucun set Jie Star trouvé pour la référence 99999', { exact: true })).toBeVisible()
+})

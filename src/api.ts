@@ -50,7 +50,8 @@ export async function request<T>(path: string, init?: RequestInit, retry = true)
       : response.status === 422 ? 'Certaines informations sont invalides. Vérifiez les champs du formulaire.'
       : response.status === 429 ? 'Trop de demandes. Patientez un instant avant de réessayer.'
       : 'L’action a échoué. Vérifiez les informations puis réessayez.'
-    throw new Error(response.status < 500 && typeof body?.detail === 'string' ? body.detail : fallback)
+    const catalogUnavailable = response.status === 503 && body?.detail?.code === 'catalog_unavailable'
+    throw new Error(catalogUnavailable ? 'Le catalogue de cette marque est temporairement indisponible. Réessayez dans quelques instants.' : response.status < 500 && typeof body?.detail === 'string' ? body.detail : fallback)
   }
   if (response.status === 204) return undefined as T
   if (!response.headers.get('content-type')?.includes('application/json')) return await response.blob() as T
